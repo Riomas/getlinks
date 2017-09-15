@@ -43,8 +43,16 @@ public class Episode {
 		this.episodeUrl = episodeUrl;
 		//setVideoHtml(GetLinksUtil.getVideoHtml(episodeUrl));
 		HtmlPage page = GetLinksUtil.getPage(episodeUrl);
-		setVideoUrl(GetLinksUtil.getVideoUrl(page));
-		setImageUrl(GetLinksUtil.getImageUrl(page));
+		try {
+			setVideoUrl(GetLinksUtil.getVideoUrl(page));
+		} catch (TagNameNotFoundException e) {
+			System.out.println(e.getMessage());
+		}
+		try {
+			setImageUrl(GetLinksUtil.getImageUrl(page));
+		} catch (TagNameNotFoundException e) {
+			System.out.println(e.getMessage());
+		}
 		setTitle(GetLinksUtil.getTitle(page));
 		setDescription(GetLinksUtil.getDescription(page));
 	}

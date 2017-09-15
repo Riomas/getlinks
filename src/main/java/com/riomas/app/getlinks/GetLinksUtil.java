@@ -93,14 +93,20 @@ public class GetLinksUtil {
 		return page;
 	}
 
-	static String getVideoUrl(HtmlPage page) throws FailingHttpStatusCodeException, MalformedURLException, IOException {
-		DomElement element = page.getElementsByTagName("source").get(0);
-		return element.getAttribute("src");
+	static String getVideoUrl(HtmlPage page) throws FailingHttpStatusCodeException, MalformedURLException, IOException, TagNameNotFoundException {
+		List<DomElement> elements = page.getElementsByTagName("source");
+		if (elements.size()>0) {
+			return elements.get(0).getAttribute("src");
+		}
+		throw new TagNameNotFoundException("Could not found tagName: 'source' in this page: '"+page.getTitleText()+"'");
 	}
 
-	static String getImageUrl(HtmlPage page) throws FailingHttpStatusCodeException, MalformedURLException, IOException {
-		DomElement element = page.getElementsByTagName("video").get(0);
-		return element.getAttribute("poster");
+	static String getImageUrl(HtmlPage page) throws FailingHttpStatusCodeException, MalformedURLException, IOException, TagNameNotFoundException {
+		List<DomElement> elements = page.getElementsByTagName("video");
+		if (elements.size()>0) {
+			return elements.get(0).getAttribute("poster");
+		}
+		throw new TagNameNotFoundException("Could not found tagName: 'video' in this page: '"+page.getTitleText()+"'");
 	}
 
 	static String getTitle(HtmlPage page) throws FailingHttpStatusCodeException, MalformedURLException, IOException {
@@ -192,8 +198,9 @@ public class GetLinksUtil {
 //			buffer.append("</video>\n");
 			buffer.append("<a target=\"_blank\" href=\"");
 			buffer.append(ep.getVideoUrl());
+			buffer.append("\" title=\"");
+			buffer.append(ep.getTitle());
 			buffer.append("\">");
-			
 			buffer.append("<img src=\"");
 			if (ep.getImageUrl().startsWith("//")) {
 				buffer.append("http:");
