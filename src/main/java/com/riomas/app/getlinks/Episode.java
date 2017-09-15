@@ -9,13 +9,19 @@ import com.gargoylesoftware.htmlunit.html.HtmlPage;
 public class Episode {
 
 	private int episodeId;
-	private String episodeUrl;
-	private String description;
-	private String videoHtml;
-	private String videoUrl;
-	private String imageUrl;
-	private String title;
+	private String episodeUrl="";
+	private String description="";
+	private String videoHtml="";
+	private String videoUrl="";
+	private String imageUrl="";
+	private String title="";
+	private String searchUrl="";
 
+	public Episode(int episodeId) {
+		this.episodeId = episodeId;
+		this.title = "Episódio " + episodeId;
+	}
+	
 	public Episode(int episodeId, String episodeUrl) throws FailingHttpStatusCodeException, MalformedURLException, IOException {
 		this.setEpisodeId(episodeId);
 		this.setEpisodeUrl(episodeUrl);
@@ -81,6 +87,14 @@ public class Episode {
 
 	public void setTitle(String title) {
 		this.title = title;
+	}
+
+	public String getSearchUrl() {
+		return searchUrl;
+	}
+
+	public void setSearchUrl(String searchUrl) {
+		this.searchUrl = searchUrl;
 	}
 
 }

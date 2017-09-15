@@ -53,7 +53,10 @@ public class GetLinksUtil {
 		String tagEpisode = "--Episodio-" + id + "--";
 		int endIndex = content.indexOf(tagEpisode);
 		if (endIndex == -1) {
-			throw new IOException(content + "\nNot found : '" + tagEpisode + "'");
+			Episode ep = new Episode(id);
+			ep.setSearchUrl(queryUrl);
+			return ep;
+			//throw new IOException(content + "\nNot found : '" + tagEpisode + "'");
 		}
 		int beginIndex = content.substring(0, endIndex).lastIndexOf("=\"");
 		endIndex = content.indexOf("\"", endIndex);
@@ -176,26 +179,47 @@ public class GetLinksUtil {
 			buffer.append("<div class=\"card\" id=\"episode");
 			buffer.append(ep.getEpisodeId());
 			buffer.append("\">\n");
-			buffer.append("<video preload=\"none\" style=\"width: 100%; height: 256px; display: block;\" controls ");
-			buffer.append("poster=\"");
-			buffer.append(ep.getImageUrl());
-			buffer.append("\">\n");
-			buffer.append("<source src=\"");
-			buffer.append(ep.getVideoUrl());
-			buffer.append("\" type=\"video/mp4\" />\n");
-			buffer.append("</video>\n");
-			buffer.append("<p class=\"card-text\">\n");
-			buffer.append("<h1>\n");
+//			buffer.append("<video preload=\"none\" style=\"width: 100%; height: 256px; display: block;\" controls ");
+//			buffer.append("poster=\"");
+//			if (ep.getImageUrl().startsWith("//")) {
+//				buffer.append("http:");
+//			}
+//			buffer.append(ep.getImageUrl());
+//			buffer.append("\">\n");
+//			buffer.append("<source src=\"");
+//			buffer.append(ep.getVideoUrl());
+//			buffer.append("\" type=\"video/mp4\" />\n");
+//			buffer.append("</video>\n");
 			buffer.append("<a target=\"_blank\" href=\"");
-			buffer.append(ep.getEpisodeUrl());
+			buffer.append(ep.getVideoUrl());
 			buffer.append("\">");
+			
+			buffer.append("<img src=\"");
+			if (ep.getImageUrl().startsWith("//")) {
+				buffer.append("http:");
+			}
+			buffer.append(ep.getImageUrl());
+			buffer.append("\" style=\"width: 100%; display: block;\"/>");
+			buffer.append("</a>\n");
+			buffer.append("<p class=\"card-text\">\n");
+			buffer.append("<h4>\n");
 			buffer.append(ep.getTitle());
-			buffer.append("</a>\n</h1>\n");
+			buffer.append("</h4>\n");
 			if (!ep.getDescription().isEmpty()) {
 				buffer.append("<span>\n");
 				buffer.append(ep.getDescription());
 				buffer.append("</span><br/>\n");
 			}
+			buffer.append("<a target=\"_blank\" href=\"");
+			
+			if (!ep.getEpisodeUrl().isEmpty()) {
+				buffer.append(ep.getEpisodeUrl());
+				buffer.append("\">Ver...");
+			} else {
+				buffer.append(ep.getSearchUrl());
+				buffer.append("\">Procurar...");
+			}
+			buffer.append("</a>\n");
 			buffer.append("</p>\n</div>\n");
 		}
 		buffer.append("</div>\n</div>\n</div>\n</body>\n</html>");
