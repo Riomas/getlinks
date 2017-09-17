@@ -24,7 +24,7 @@ public class Episode {
 	
 	public Episode(int episodeId, String episodeUrl) throws FailingHttpStatusCodeException, MalformedURLException, IOException {
 		this.setEpisodeId(episodeId);
-		this.setEpisodeUrl(episodeUrl);
+		this.setEpisodeUrl(episodeUrl, episodeId);
 	}
 
 	public int getEpisodeId() {
@@ -39,10 +39,10 @@ public class Episode {
 		return episodeUrl;
 	}
 
-	public void setEpisodeUrl(String episodeUrl) throws FailingHttpStatusCodeException, MalformedURLException, IOException {
+	public void setEpisodeUrl(String episodeUrl, int id) throws FailingHttpStatusCodeException, MalformedURLException, IOException {
 		this.episodeUrl = episodeUrl;
 		//setVideoHtml(GetLinksUtil.getVideoHtml(episodeUrl));
-		HtmlPage page = GetLinksUtil.getPage(episodeUrl);
+		HtmlPage page = GetLinksUtil.getPage(episodeUrl, id);
 		try {
 			setVideoUrl(GetLinksUtil.getVideoUrl(page));
 		} catch (TagNameNotFoundException e) {
