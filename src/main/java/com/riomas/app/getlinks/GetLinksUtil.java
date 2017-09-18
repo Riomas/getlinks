@@ -1,16 +1,10 @@
 package com.riomas.app.getlinks;
 
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.net.MalformedURLException;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.apache.http.HttpResponse;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.HttpClientBuilder;
 import org.w3c.css.sac.CSSException;
 import org.w3c.css.sac.CSSParseException;
 import org.w3c.css.sac.ErrorHandler;
@@ -32,15 +26,15 @@ public class GetLinksUtil {
 	public static final String USER_AGENT_EDGE = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/52.0.2743.116 Safari/537.36 Edge/15.15063";
 	public static final String USER_AGENT_CHROME = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.113 Safari/537.36";
 
-	static final CloseableHttpClient client = HttpClientBuilder.create().build();
+	//static final CloseableHttpClient client = HttpClientBuilder.create().build();
 	// static final WebClient webClient = new
 	// WebClient(BrowserVersion.BEST_SUPPORTED);
 
-	public static List<Episode> getAllEpisodes(String hostname, String searchQueryUrl, String contextUrl) {
+	public static List<Episode> getAllEpisodes(String hostname, String searchQueryUrl, int start, int stop) {
 
 		List<Episode> episodes = new ArrayList<Episode>();
 
-		for (int i = 1; i <= 320; i++) {
+		for (int i = start; i <= stop; i++) {
 			System.out.println("--------------------------------------------------------");
 			String queryUrl = hostname + searchQueryUrl + i;
 			System.out.println("queryUrl: " + queryUrl);
@@ -93,7 +87,7 @@ public class GetLinksUtil {
 			try {
 				page = webClient.getPage(queryUrl);
 				int cpt = 0;
-				while(cpt < 20 && !page.asText().contains("Episódio "+id+" ")){
+				while(cpt < 20 && ( /* !page.asText().contains("não obteve resultados") ||*/ !page.asText().contains("Episódio "+id+" "))){
 					System.out.println("wait ... "+cpt++);
 			        webClient.waitForBackgroundJavaScript(1000);
 			        //page.wait(100);
@@ -240,29 +234,29 @@ public class GetLinksUtil {
 		return "";
 	}
 
-	static String getHttpClientAsString(String queryUrl) throws IOException {
-
-		HttpGet request = new HttpGet(queryUrl);
-
-		// add request header
-		request.addHeader("User-Agent", USER_AGENT_EDGE);
-		HttpResponse response = client.execute(request);
-
-		System.out.println("Response Code : " + response.getStatusLine().getStatusCode());
-		if (response.getStatusLine().getStatusCode() != 200) {
-			return "";
-		}
-		BufferedReader rd = new BufferedReader(new InputStreamReader(response.getEntity().getContent()));
-
-		StringBuffer result = new StringBuffer();
-		String line = "";
-		while ((line = rd.readLine()) != null) {
-			result.append(line);
-		}
-		rd.close();
-
-		return result.toString();
-	}
+//	static String getHttpClientAsString(String queryUrl) throws IOException {
+//
+//		HttpGet request = new HttpGet(queryUrl);
+//
+//		// add request header
+//		request.addHeader("User-Agent", USER_AGENT_EDGE);
+//		HttpResponse response = client.execute(request);
+//
+//		System.out.println("Response Code : " + response.getStatusLine().getStatusCode());
+//		if (response.getStatusLine().getStatusCode() != 200) {
+//			return "";
+//		}
+//		BufferedReader rd = new BufferedReader(new InputStreamReader(response.getEntity().getContent()));
+//
+//		StringBuffer result = new StringBuffer();
+//		String line = "";
+//		while ((line = rd.readLine()) != null) {
+//			result.append(line);
+//		}
+//		rd.close();
+//
+//		return result.toString();
+//	}
 
 	@Deprecated
 	static String getWebClientAsString(String queryUrl, int id)
@@ -270,15 +264,21 @@ public class GetLinksUtil {
 		return getPage(queryUrl, id).asXml();
 	}
 
-	public static String toHTML(List<Episode> episodes) {
+	public static String toHTML(String title, List<Episode> episodes) {
 		StringBuilder buffer = new StringBuilder();
 		buffer.append("<!DOCTYPE html>\n<html>\n");
 		buffer.append("<head>\n<meta charset=\"UTF-8\"/>\n");
+		buffer.append("<title>");
+		buffer.append(title);
+		buffer.append("</title>\n");
 		buffer.append(
 				"<link rel=\"stylesheet\" href=\"https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-beta/css/bootstrap.min.css\" integrity=\"sha384-/Y6pD6FV/Vv2HJnA6t+vslU6fwYXjCFtcEpHbNJ0lyAFsXTsjBbfaDjzALeQsN6M\" crossorigin=\"anonymous\">");
 		buffer.append("<link rel=\"stylesheet\" href=\"http://getbootstrap.com/docs/4.0/examples/album/album.css\" >");
 		buffer.append("</head>\n");
 		buffer.append("<body>\n");
+		buffer.append("<div class=\"page-header text-center\">\n<h1>");
+		buffer.append(title);
+		buffer.append("</h1>\n</div>\n");
 		buffer.append("<div class=\"album\">\n");
 		buffer.append("<div class=\"container\">\n");
 		buffer.append("<div class=\"row\">\n");
