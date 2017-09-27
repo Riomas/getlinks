@@ -1,8 +1,13 @@
 package com.riomas.app.getlinks;
 
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.util.List;
 
 import org.apache.commons.cli.CommandLine;
@@ -29,27 +34,65 @@ public class App {
 
 		String outputFileName = cmd.getOptionValue('o') + File.separatorChar + StringUtils.join(keywords, "")
 				+ ".html";
+		String saveFileName = cmd.getOptionValue('o') + File.separatorChar + StringUtils.join(keywords, "")
+		+ ".out";
 
 		int start = Integer.valueOf(cmd.getOptionValue('b'));
 		int stop = Integer.valueOf(cmd.getOptionValue('e'));
 		
 		File outputFile = new File(outputFileName);
+		File saveFile = new File(saveFileName);
+		
+		List<Episode> episodes = readFromFile(saveFile);
 		
 		//String context = String.format(CONTEXT_URL, StringUtils.join(keywords, "")).toLowerCase();
 
-		List<Episode> episodes = GetLinksUtil.getAllEpisodes(HOSTNAME, searchQuery, start, stop);
+		if (episodes==null) {
+			episodes = GetLinksUtil.getAllEpisodes(HOSTNAME, searchQuery, start, stop);
+		} else {
+			GetLinksUtil.updateMissingEpisodes(HOSTNAME, searchQuery, start, stop, episodes);
+		}
+		
+		System.out.println("Total episodes : " + episodes.size());
 
+		saveToFile(saveFile, episodes);
+		
 		String buffer = GetLinksUtil.toHTML(novela, episodes);
+		
+		System.out.println("HTML generated!");
+
 		try {
 			FileWriter fw = new FileWriter(outputFile);
 			fw.append(buffer);
 			fw.flush();
 			fw.close();
+			System.out.println("Write episodes to '"+outputFile.getAbsolutePath()+"'");
+		} catch (IOException e) {
+			System.err.println("Unexpected exception:" + e.getMessage());
+		}
+		System.out.println("End process.");
+
+	}
+
+	private static List<Episode> readFromFile(File file) {
+		
+		try {
+			FileInputStream fi = new FileInputStream(file);
+			ObjectInputStream oi = new ObjectInputStream(fi);
+			// Read objects
+			return (List<Episode>) oi.readObject();
+
+		} catch (FileNotFoundException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
+		} catch (ClassNotFoundException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
 		}
-
+		return null;
 	}
 
 	private static CommandLine getCommandLine(String[] args) {
@@ -71,4 +114,44 @@ public class App {
 		}
 		return null;
 	}
+	
+	public synchronized static void saveToFile(File file, Object object) {
+
+		FileOutputStream fout = null;
+		ObjectOutputStream oos = null;
+
+		try {
+
+			fout = new FileOutputStream(file, false);
+			oos = new ObjectOutputStream(fout);
+			oos.writeObject(object);
+
+			System.out.println("Done");
+
+		} catch (Exception ex) {
+
+			ex.printStackTrace();
+
+		} finally {
+
+			if (fout != null) {
+				try {
+					fout.close();
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+			}
+
+			if (oos != null) {
+				try {
+					oos.close();
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+			}
+
+		}
+	}
+
+
 }

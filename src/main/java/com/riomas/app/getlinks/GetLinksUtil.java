@@ -43,7 +43,7 @@ public class GetLinksUtil {
 				System.out.println("URL: " + episode.getEpisodeUrl());
 				episodes.add(episode);
 			} catch (IOException e) {
-				e.printStackTrace();
+				System.out.println("Skip episode "+i);
 				continue;
 			}
 		}
@@ -265,6 +265,7 @@ public class GetLinksUtil {
 	}
 
 	public static String toHTML(String title, List<Episode> episodes) {
+		
 		StringBuilder buffer = new StringBuilder();
 		buffer.append("<!DOCTYPE html>\n<html>\n");
 		buffer.append("<head>\n<meta charset=\"UTF-8\"/>\n");
@@ -276,9 +277,29 @@ public class GetLinksUtil {
 		buffer.append("<link rel=\"stylesheet\" href=\"http://getbootstrap.com/docs/4.0/examples/album/album.css\" >");
 		buffer.append("</head>\n");
 		buffer.append("<body>\n");
-		buffer.append("<div class=\"page-header text-center\">\n<h1>");
+		
+		// navbar
+		buffer.append("<div class=\"container\">\n");
+		buffer.append("<nav class=\"navbar fixed-top navbar-expand-lg navbar-dark bg-dark\">\n");
+		buffer.append("<a class=\"navbar-brand\" href=\"#\">");
 		buffer.append(title);
-		buffer.append("</h1>\n</div>\n");
+		buffer.append("</a>\n");
+		buffer.append("<button class=\"navbar-toggler\" type=\"button\" data-toggle=\"collapse\" data-target=\"#navbarepisodes\" aria-controls=\"navbarepisodes\" aria-expanded=\"false\" aria-label=\"Toggle navigation\">");
+		buffer.append("<span class=\"navbar-toggler-icon\"></span>");
+		buffer.append("</button>");
+		buffer.append("<div class=\"collapse navbar-collapse\" id=\"navbarepisodes\">\n");
+		buffer.append("<div class=\"navbar-nav\">\n");
+		for (int i=1; i<episodes.size(); i=i+10) {
+			//buffer.append("<li class=\"nav-item\">\n");
+			buffer.append("<a class=\"nav-item nav-link\" href=\"#episode"+i+"\">"+i+"</a>\n");
+			//buffer.append("</li>\n");
+		}
+		buffer.append("</div>\n");
+		buffer.append("</div>\n");
+		buffer.append("</nav>\n");
+		buffer.append("</div>\n");
+		
+		// episodes
 		buffer.append("<div class=\"album\">\n");
 		buffer.append("<div class=\"container\">\n");
 		buffer.append("<div class=\"row\">\n");
@@ -286,18 +307,6 @@ public class GetLinksUtil {
 			buffer.append("<div class=\"card\" id=\"episode");
 			buffer.append(ep.getEpisodeId());
 			buffer.append("\">\n");
-			// buffer.append("<video preload=\"none\" style=\"width: 100%;
-			// height: 256px; display: block;\" controls ");
-			// buffer.append("poster=\"");
-			// if (ep.getImageUrl().startsWith("//")) {
-			// buffer.append("http:");
-			// }
-			// buffer.append(ep.getImageUrl());
-			// buffer.append("\">\n");
-			// buffer.append("<source src=\"");
-			// buffer.append(ep.getVideoUrl());
-			// buffer.append("\" type=\"video/mp4\" />\n");
-			// buffer.append("</video>\n");
 			buffer.append("<a target=\"_blank\" href=\"");
 			buffer.append(ep.getVideoUrl());
 			buffer.append("\" title=\"");
@@ -333,6 +342,29 @@ public class GetLinksUtil {
 		}
 		buffer.append("</div>\n</div>\n</div>\n</body>\n</html>");
 		return buffer.toString();
+	}
+
+	public static void updateMissingEpisodes(String hostname, String searchQueryUrl, int start, int stop, final List<Episode> episodes) {
+		
+		for (int i = start; i <= stop; i++) {
+			System.out.println("--------------------------------------------------------");
+			String queryUrl = hostname + searchQueryUrl + i;
+			System.out.println("queryUrl: " + queryUrl);
+			try {
+				Episode episode = episodes.get(i-1);
+				if (episode==null || episode.getVideoUrl().isEmpty()) {
+					episodes.remove(i-1);
+					episode = getEpisode(i, queryUrl);
+					
+					System.out.println("URL: " + episode.getEpisodeUrl());
+					episodes.add(i-1, episode);
+				}
+			} catch (IOException e) {
+				System.out.println("Skip episode "+i);
+				continue;
+			}
+		}
+
 	}
 
 }

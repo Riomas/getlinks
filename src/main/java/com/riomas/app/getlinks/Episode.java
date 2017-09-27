@@ -1,13 +1,19 @@
 package com.riomas.app.getlinks;
 
 import java.io.IOException;
+import java.io.Serializable;
 import java.net.MalformedURLException;
 
 import com.gargoylesoftware.htmlunit.FailingHttpStatusCodeException;
 import com.gargoylesoftware.htmlunit.html.HtmlPage;
 
-public class Episode {
+public class Episode implements Serializable{
 
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 2945752214067798146L;
+	
 	private int episodeId;
 	private String episodeUrl="";
 	private String description="";
@@ -105,4 +111,13 @@ public class Episode {
 		this.searchUrl = searchUrl;
 	}
 
+	@Override
+	public String toString() {
+		return "Episode [episodeId=" + episodeId + ", episodeUrl=" + episodeUrl + ", description=" + description
+				+ ", videoHtml=" + videoHtml + ", videoUrl=" + videoUrl + ", imageUrl=" + imageUrl + ", title=" + title
+				+ ", searchUrl=" + searchUrl + "]";
+	}
+
+	
+	
 }
