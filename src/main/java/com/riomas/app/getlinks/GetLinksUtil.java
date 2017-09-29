@@ -289,10 +289,12 @@ public class GetLinksUtil {
 		buffer.append("</button>");
 		buffer.append("<div class=\"collapse navbar-collapse\" id=\"navbarepisodes\">\n");
 		buffer.append("<div class=\"navbar-nav\">\n");
-		for (int i=1; i<episodes.size(); i=i+10) {
+		for (int i=1; i<episodes.size(); i++) {
+			if (i % 20 ==0) {
 			//buffer.append("<li class=\"nav-item\">\n");
-			buffer.append("<a class=\"nav-item nav-link\" href=\"#episode"+i+"\">"+i+"</a>\n");
+				buffer.append("<a class=\"nav-item nav-link\" href=\"#episode"+i+"\">"+i+"</a>\n");
 			//buffer.append("</li>\n");
+			}
 		}
 		buffer.append("</div>\n");
 		buffer.append("</div>\n");
@@ -351,13 +353,20 @@ public class GetLinksUtil {
 			String queryUrl = hostname + searchQueryUrl + i;
 			System.out.println("queryUrl: " + queryUrl);
 			try {
-				Episode episode = episodes.get(i-1);
+				
+				Episode episode = null;
+				if (i <= episodes.size()) {
+					episode = episodes.get(i-1);
+				}
+				
 				if (episode==null || episode.getVideoUrl().isEmpty()) {
-					episodes.remove(i-1);
 					episode = getEpisode(i, queryUrl);
-					
 					System.out.println("URL: " + episode.getEpisodeUrl());
-					episodes.add(i-1, episode);
+					if (i <= episodes.size()) {
+						episodes.set(i-1, episode);
+					} else {
+						episodes.add(i-1, episode);
+					}
 				}
 			} catch (IOException e) {
 				System.out.println("Skip episode "+i);

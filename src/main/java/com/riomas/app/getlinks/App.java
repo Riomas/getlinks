@@ -74,11 +74,12 @@ public class App {
 
 	}
 
+	@SuppressWarnings("unchecked")
 	private static List<Episode> readFromFile(File file) {
-		
+		ObjectInputStream oi = null;
 		try {
 			FileInputStream fi = new FileInputStream(file);
-			ObjectInputStream oi = new ObjectInputStream(fi);
+			oi = new ObjectInputStream(fi);
 			// Read objects
 			return (List<Episode>) oi.readObject();
 
@@ -91,6 +92,16 @@ public class App {
 		} catch (ClassNotFoundException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
+		} finally {
+			if (oi!=null){
+				try {
+					oi.close();
+				} catch (IOException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+			}
+			System.out.println("Load episodes from file: '"+file.getAbsolutePath()+"'");
 		}
 		return null;
 	}
@@ -126,7 +137,7 @@ public class App {
 			oos = new ObjectOutputStream(fout);
 			oos.writeObject(object);
 
-			System.out.println("Done");
+			System.out.println("Save episodes to file: '"+file.getAbsolutePath()+"'");
 
 		} catch (Exception ex) {
 
