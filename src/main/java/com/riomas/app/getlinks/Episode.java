@@ -1,24 +1,36 @@
 package com.riomas.app.getlinks;
 
 import java.io.IOException;
+import java.io.Serializable;
 import java.net.MalformedURLException;
 
 import com.gargoylesoftware.htmlunit.FailingHttpStatusCodeException;
 import com.gargoylesoftware.htmlunit.html.HtmlPage;
 
-public class Episode {
+public class Episode implements Serializable{
 
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 2945752214067798146L;
+	
 	private int episodeId;
-	private String episodeUrl;
-	private String description;
-	private String videoHtml;
-	private String videoUrl;
-	private String imageUrl;
-	private String title;
+	private String episodeUrl="";
+	private String description="";
+	private String videoHtml="";
+	private String videoUrl="";
+	private String imageUrl="";
+	private String title="";
+	private String searchUrl="";
 
+	public Episode(int episodeId) {
+		this.episodeId = episodeId;
+		this.title = "Episódio " + episodeId;
+	}
+	
 	public Episode(int episodeId, String episodeUrl) throws FailingHttpStatusCodeException, MalformedURLException, IOException {
 		this.setEpisodeId(episodeId);
-		this.setEpisodeUrl(episodeUrl);
+		this.setEpisodeUrl(episodeUrl, episodeId);
 	}
 
 	public int getEpisodeId() {
@@ -33,12 +45,20 @@ public class Episode {
 		return episodeUrl;
 	}
 
-	public void setEpisodeUrl(String episodeUrl) throws FailingHttpStatusCodeException, MalformedURLException, IOException {
+	public void setEpisodeUrl(String episodeUrl, int id) throws FailingHttpStatusCodeException, MalformedURLException, IOException {
 		this.episodeUrl = episodeUrl;
 		//setVideoHtml(GetLinksUtil.getVideoHtml(episodeUrl));
-		HtmlPage page = GetLinksUtil.getPage(episodeUrl);
-		setVideoUrl(GetLinksUtil.getVideoUrl(page));
-		setImageUrl(GetLinksUtil.getImageUrl(page));
+		HtmlPage page = GetLinksUtil.getPage(episodeUrl, id);
+		try {
+			setVideoUrl(GetLinksUtil.getVideoUrl(page));
+		} catch (TagNameNotFoundException e) {
+			System.out.println(e.getMessage());
+		}
+		try {
+			setImageUrl(GetLinksUtil.getImageUrl(page));
+		} catch (TagNameNotFoundException e) {
+			System.out.println(e.getMessage());
+		}
 		setTitle(GetLinksUtil.getTitle(page));
 		setDescription(GetLinksUtil.getDescription(page));
 	}
@@ -83,4 +103,21 @@ public class Episode {
 		this.title = title;
 	}
 
+	public String getSearchUrl() {
+		return searchUrl;
+	}
+
+	public void setSearchUrl(String searchUrl) {
+		this.searchUrl = searchUrl;
+	}
+
+	@Override
+	public String toString() {
+		return "Episode [episodeId=" + episodeId + ", episodeUrl=" + episodeUrl + ", description=" + description
+				+ ", videoHtml=" + videoHtml + ", videoUrl=" + videoUrl + ", imageUrl=" + imageUrl + ", title=" + title
+				+ ", searchUrl=" + searchUrl + "]";
+	}
+
+	
+	
 }

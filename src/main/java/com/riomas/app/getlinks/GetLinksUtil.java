@@ -1,103 +1,216 @@
 package com.riomas.app.getlinks;
 
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.net.MalformedURLException;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.apache.http.HttpResponse;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.HttpClientBuilder;
+import org.w3c.css.sac.CSSException;
+import org.w3c.css.sac.CSSParseException;
+import org.w3c.css.sac.ErrorHandler;
 
 import com.gargoylesoftware.htmlunit.BrowserVersion;
 import com.gargoylesoftware.htmlunit.FailingHttpStatusCodeException;
+import com.gargoylesoftware.htmlunit.IncorrectnessListener;
+import com.gargoylesoftware.htmlunit.NicelyResynchronizingAjaxController;
+import com.gargoylesoftware.htmlunit.ScriptException;
 import com.gargoylesoftware.htmlunit.WebClient;
 import com.gargoylesoftware.htmlunit.html.DomElement;
-import com.gargoylesoftware.htmlunit.html.DomNode;
 import com.gargoylesoftware.htmlunit.html.DomNodeList;
+import com.gargoylesoftware.htmlunit.html.HTMLParserListener;
 import com.gargoylesoftware.htmlunit.html.HtmlPage;
+import com.gargoylesoftware.htmlunit.javascript.JavaScriptErrorListener;
 
 public class GetLinksUtil {
 
 	public static final String USER_AGENT_EDGE = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/52.0.2743.116 Safari/537.36 Edge/15.15063";
 	public static final String USER_AGENT_CHROME = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.113 Safari/537.36";
 
-	static final CloseableHttpClient client = HttpClientBuilder.create().build();
-	static final WebClient webClient = new WebClient(BrowserVersion.CHROME);
+	//static final CloseableHttpClient client = HttpClientBuilder.create().build();
+	// static final WebClient webClient = new
+	// WebClient(BrowserVersion.BEST_SUPPORTED);
 
-	public static List<Episode> getAllEpisodes(String hostname, String searchQueryUrl, String contextUrl) {
+	public static List<Episode> getAllEpisodes(String hostname, String seasonTag, String searchQueryUrl, int start, int stop) {
 
 		List<Episode> episodes = new ArrayList<Episode>();
 
-		for (int i = 1; i <= 320; i++) {
+		for (int i = start; i <= stop; i++) {
 			System.out.println("--------------------------------------------------------");
 			String queryUrl = hostname + searchQueryUrl + i;
 			System.out.println("queryUrl: " + queryUrl);
 			try {
-				Episode episode = getEpisode(i, queryUrl);
+				Episode episode = getEpisode(i, hostname, seasonTag, queryUrl);
 				System.out.println("URL: " + episode.getEpisodeUrl());
 				episodes.add(episode);
 			} catch (IOException e) {
-				e.printStackTrace();
+				System.out.println("Skip episode "+i);
 				continue;
 			}
 		}
 		return episodes;
 	}
 
-	private static Episode getEpisode(int id, String queryUrl) throws IOException {
-		String content = getHttpClientAsString(queryUrl);
-		String tagEpisode = "--Episodio-" + id + "--";
+	private static Episode getEpisode(int id, String hostname, String seasonTag, String queryUrl) throws IOException {
+		// String content = getHttpClientAsString(queryUrl);
+		String content = getPage(queryUrl, id).getBody().asXml();
+		String tagEpisode = seasonTag+"---Episodio-" + id + "-";
 		int endIndex = content.indexOf(tagEpisode);
 		if (endIndex == -1) {
-			throw new IOException(content + "\nNot found : '" + tagEpisode + "'");
+			Episode ep = new Episode(id);
+			ep.setSearchUrl(queryUrl);
+			return ep;
+			// throw new IOException(content + "\nNot found : '" + tagEpisode +
+			// "'");
 		}
 		int beginIndex = content.substring(0, endIndex).lastIndexOf("=\"");
 		endIndex = content.indexOf("\"", endIndex);
-		return new Episode(id, content.substring(beginIndex + 2, endIndex));
+		return new Episode(id, hostname + content.substring(beginIndex + 2, endIndex));
 	}
 
-	static String getVideoHtml(String queryUrl)
-			throws FailingHttpStatusCodeException, MalformedURLException, IOException {
-		HtmlPage page = webClient.getPage(queryUrl);
-		while (!page.getReadyState().equals(DomNode.READY_STATE_COMPLETE)) {
-			try {
-				System.out.println("Loading page, waiting...");
-				Thread.currentThread().wait(1000);
-			} catch (InterruptedException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
+	static String getVideoHtml(String queryUrl, int id)
+			throws FailingHttpStatusCodeException, MalformedURLException, IOException, TagNameNotFoundException {
+		HtmlPage page = getPage(queryUrl, id);
+		DomNodeList<DomElement> elements = page.getElementsByTagName("video");
+		if (elements.size() > 0) {
+			return elements.get(0).getParentNode().asXml();
 		}
-		DomNode video = page.getElementsByTagName("video").get(0).getParentNode();
-		return video.asXml();
+		throw new TagNameNotFoundException(
+				"Could not found tagName: 'source' in this page: '" + page.getTitleText() + "'");
 	}
 
-	static HtmlPage getPage(String queryUrl) throws FailingHttpStatusCodeException, MalformedURLException, IOException {
-		HtmlPage page = webClient.getPage(queryUrl);
-		while (!page.getReadyState().equals(DomNode.READY_STATE_COMPLETE)) {
+	static HtmlPage getPage(String queryUrl, int id) throws FailingHttpStatusCodeException, MalformedURLException, IOException {
+		WebClient webClient = gethtmlUnitClient();
+        //webClient.waitForBackgroundJavaScript(60000);
+
+		try {
+			HtmlPage page = null;
 			try {
-				System.out.println("Loading page, waiting...");
-				Thread.currentThread().wait(1000);
-			} catch (InterruptedException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
+				page = webClient.getPage(queryUrl);
+				int cpt = 0;
+				while(cpt < 20 && ( /* !page.asText().contains("não obteve resultados") ||*/ !page.asText().contains("Episódio "+id+" "))){
+					System.out.println("wait ... "+cpt++);
+			        webClient.waitForBackgroundJavaScript(1000);
+			        //page.wait(100);
+			    }
+//		        while (webClient.waitForBackgroundJavaScript(60000) > 0) {
+//		            synchronized (page) {
+//		                page.wait(200);
+//		            }
+//		        }
+			} catch (Exception e) {
+				System.out.println("Get page error: " + e.getMessage());
 			}
+//			JavaScriptJobManager manager = page.getEnclosingWindow().getJobManager();
+//			while (manager.getJobCount() > 0) {
+//				try {
+//					Thread.sleep(1000);
+//				} catch (InterruptedException e) {
+//					System.out.println(e.getMessage());
+//				}
+//			}
+			
+			// webClient.getPage(queryUrl);
+			// while
+			// (!page.getReadyState().equals(DomNode.READY_STATE_COMPLETE)) {
+			// try {
+			// System.out.println("Loading page, waiting...");
+			// Thread.currentThread().wait(1000);
+			// } catch (InterruptedException e) {
+			// // TODO Auto-generated catch block
+			// e.printStackTrace();
+			// }
+			// }
+			return page;
+		} finally {
+			webClient.close();
 		}
-		return page;
+
 	}
 
-	static String getVideoUrl(HtmlPage page) throws FailingHttpStatusCodeException, MalformedURLException, IOException {
-		DomElement element = page.getElementsByTagName("source").get(0);
-		return element.getAttribute("src");
+	static public WebClient gethtmlUnitClient() {
+        WebClient webClient = new WebClient(BrowserVersion.CHROME);
+        webClient.setAjaxController(new NicelyResynchronizingAjaxController());
+        
+        webClient.setIncorrectnessListener(new IncorrectnessListener() {
+            public void notify(String arg0, Object arg1) {
+            }
+        });
+        webClient.setCssErrorHandler(new ErrorHandler() {
+
+            public void warning(CSSParseException arg0) throws CSSException {
+                // TODO Auto-generated method stub
+
+            }
+
+            public void fatalError(CSSParseException arg0) throws CSSException {
+                // TODO Auto-generated method stub
+
+            }
+
+            public void error(CSSParseException arg0) throws CSSException {
+                // TODO Auto-generated method stub
+
+            }
+        });
+        webClient.setJavaScriptErrorListener(new JavaScriptErrorListener() {
+
+            public void timeoutError(HtmlPage arg0, long arg1, long arg2) {
+                // TODO Auto-generated method stub
+
+            }
+
+            public void scriptException(HtmlPage arg0, ScriptException arg1) {
+                // TODO Auto-generated method stub
+
+            }
+
+            public void malformedScriptURL(HtmlPage arg0, String arg1, MalformedURLException arg2) {
+                // TODO Auto-generated method stub
+
+            }
+
+            public void loadScriptError(HtmlPage page, java.net.URL scriptUrl, Exception exception) {
+				// TODO Auto-generated method stub
+				
+			}
+        });
+        webClient.setHTMLParserListener(new HTMLParserListener() {
+
+            public void error(String message, java.net.URL url, String html, int line, int column, String key) {
+				// TODO Auto-generated method stub
+				
+			}
+
+			public void warning(String message, java.net.URL url, String html, int line, int column, String key) {
+				// TODO Auto-generated method stub
+				
+			}
+        });
+        webClient.getOptions().setThrowExceptionOnScriptError(false);
+        webClient.getOptions().setCssEnabled(false);
+        webClient.getOptions().setDownloadImages(false);
+
+        return webClient;
+
+    }
+	static String getVideoUrl(HtmlPage page)
+			throws FailingHttpStatusCodeException, MalformedURLException, IOException, TagNameNotFoundException {
+		List<DomElement> elements = page.getElementsByTagName("source");
+		if (elements.size() > 0) {
+			return elements.get(0).getAttribute("src");
+		}
+		throw new TagNameNotFoundException(
+				"Could not found tagName: 'source' in this page: '" + page.getTitleText() + "'");
 	}
 
-	static String getImageUrl(HtmlPage page) throws FailingHttpStatusCodeException, MalformedURLException, IOException {
-		DomElement element = page.getElementsByTagName("video").get(0);
-		return element.getAttribute("poster");
+	static String getImageUrl(HtmlPage page)
+			throws FailingHttpStatusCodeException, MalformedURLException, IOException, TagNameNotFoundException {
+		List<DomElement> elements = page.getElementsByTagName("video");
+		if (elements.size() > 0) {
+			return elements.get(0).getAttribute("poster");
+		}
+		throw new TagNameNotFoundException(
+				"Could not found tagName: 'video' in this page: '" + page.getTitleText() + "'");
 	}
 
 	static String getTitle(HtmlPage page) throws FailingHttpStatusCodeException, MalformedURLException, IOException {
@@ -121,54 +234,74 @@ public class GetLinksUtil {
 		return "";
 	}
 
-	static String getHttpClientAsString(String queryUrl) throws IOException {
+//	static String getHttpClientAsString(String queryUrl) throws IOException {
+//
+//		HttpGet request = new HttpGet(queryUrl);
+//
+//		// add request header
+//		request.addHeader("User-Agent", USER_AGENT_EDGE);
+//		HttpResponse response = client.execute(request);
+//
+//		System.out.println("Response Code : " + response.getStatusLine().getStatusCode());
+//		if (response.getStatusLine().getStatusCode() != 200) {
+//			return "";
+//		}
+//		BufferedReader rd = new BufferedReader(new InputStreamReader(response.getEntity().getContent()));
+//
+//		StringBuffer result = new StringBuffer();
+//		String line = "";
+//		while ((line = rd.readLine()) != null) {
+//			result.append(line);
+//		}
+//		rd.close();
+//
+//		return result.toString();
+//	}
 
-		HttpGet request = new HttpGet(queryUrl);
-
-		// add request header
-		request.addHeader("User-Agent", USER_AGENT_EDGE);
-		HttpResponse response = client.execute(request);
-
-		System.out.println("Response Code : " + response.getStatusLine().getStatusCode());
-		if (response.getStatusLine().getStatusCode() != 200) {
-			return "";
-		}
-		BufferedReader rd = new BufferedReader(new InputStreamReader(response.getEntity().getContent()));
-
-		StringBuffer result = new StringBuffer();
-		String line = "";
-		while ((line = rd.readLine()) != null) {
-			result.append(line);
-		}
-		rd.close();
-
-		return result.toString();
-	}
-
-	static String getWebClientAsString(String queryUrl)
+	@Deprecated
+	static String getWebClientAsString(String queryUrl, int id)
 			throws FailingHttpStatusCodeException, MalformedURLException, IOException {
-		HtmlPage page = webClient.getPage(queryUrl);
-		while (!page.getReadyState().equals(DomNode.READY_STATE_COMPLETE)) {
-			try {
-				System.out.println("Loading page, waiting...");
-				Thread.currentThread().wait(1000);
-			} catch (InterruptedException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-		}
-		return page.asXml();
+		return getPage(queryUrl, id).asXml();
 	}
 
-	public static String toHTML(List<Episode> episodes) {
+	public static String toHTML(String title, List<Episode> episodes) {
+		
 		StringBuilder buffer = new StringBuilder();
 		buffer.append("<!DOCTYPE html>\n<html>\n");
 		buffer.append("<head>\n<meta charset=\"UTF-8\"/>\n");
+		buffer.append("<title>");
+		buffer.append(title);
+		buffer.append("</title>\n");
 		buffer.append(
-				"<link rel=\"stylesheet\" href=\"https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-beta/css/bootstrap.min.css\" integrity=\"sha384-/Y6pD6FV/Vv2HJnA6t+vslU6fwYXjCFtcEpHbNJ0lyAFsXTsjBbfaDjzALeQsN6M\" crossorigin=\"anonymous\">");
+				"<link href=\"https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css\" rel=\"stylesheet\" integrity=\"sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T\" crossorigin=\"anonymous\">");
 		buffer.append("<link rel=\"stylesheet\" href=\"http://getbootstrap.com/docs/4.0/examples/album/album.css\" >");
 		buffer.append("</head>\n");
 		buffer.append("<body>\n");
+		
+		// navbar
+		buffer.append("<div class=\"container\">\n");
+		buffer.append("<nav class=\"navbar fixed-top navbar-expand-lg navbar-dark bg-dark\">\n");
+		buffer.append("<a class=\"navbar-brand\" href=\"#\">");
+		buffer.append(title);
+		buffer.append("</a>\n");
+		buffer.append("<button class=\"navbar-toggler\" type=\"button\" data-toggle=\"collapse\" data-target=\"#navbarepisodes\" aria-controls=\"navbarepisodes\" aria-expanded=\"false\" aria-label=\"Toggle navigation\">");
+		buffer.append("<span class=\"navbar-toggler-icon\"></span>");
+		buffer.append("</button>");
+		buffer.append("<div class=\"collapse navbar-collapse\" id=\"navbarepisodes\">\n");
+		buffer.append("<div class=\"navbar-nav\">\n");
+		for (int i=1; i<episodes.size(); i++) {
+			if (i % 20 ==0) {
+			//buffer.append("<li class=\"nav-item\">\n");
+				buffer.append("<a class=\"nav-item nav-link\" href=\"#episode"+i+"\">"+i+"</a>\n");
+			//buffer.append("</li>\n");
+			}
+		}
+		buffer.append("</div>\n");
+		buffer.append("</div>\n");
+		buffer.append("</nav>\n");
+		buffer.append("</div>\n");
+		
+		// episodes
 		buffer.append("<div class=\"album\">\n");
 		buffer.append("<div class=\"container\">\n");
 		buffer.append("<div class=\"row\">\n");
@@ -176,30 +309,71 @@ public class GetLinksUtil {
 			buffer.append("<div class=\"card\" id=\"episode");
 			buffer.append(ep.getEpisodeId());
 			buffer.append("\">\n");
-			buffer.append("<video preload=\"none\" style=\"width: 100%; height: 256px; display: block;\" controls ");
-			buffer.append("poster=\"");
-			buffer.append(ep.getImageUrl());
-			buffer.append("\">\n");
-			buffer.append("<source src=\"");
-			buffer.append(ep.getVideoUrl());
-			buffer.append("\" type=\"video/mp4\" />\n");
-			buffer.append("</video>\n");
-			buffer.append("<p class=\"card-text\">\n");
-			buffer.append("<h1>\n");
 			buffer.append("<a target=\"_blank\" href=\"");
-			buffer.append(ep.getEpisodeUrl());
-			buffer.append("\">");
+			buffer.append(ep.getVideoUrl());
+			buffer.append("\" title=\"");
 			buffer.append(ep.getTitle());
-			buffer.append("</a>\n</h1>\n");
+			buffer.append("\">");
+			buffer.append("<img src=\"");
+			if (ep.getImageUrl().startsWith("//")) {
+				buffer.append("http:");
+			}
+			buffer.append(ep.getImageUrl());
+			buffer.append("\" style=\"width: 100%; display: block;\"/>");
+			buffer.append("</a>\n");
+			buffer.append("<p class=\"card-text\">\n");
+			buffer.append("<h4>\n");
+			buffer.append(ep.getTitle());
+			buffer.append("</h4>\n");
 			if (!ep.getDescription().isEmpty()) {
 				buffer.append("<span>\n");
 				buffer.append(ep.getDescription());
 				buffer.append("</span><br/>\n");
 			}
+			buffer.append("<a target=\"_blank\" href=\"");
+
+			if (!ep.getEpisodeUrl().isEmpty()) {
+				buffer.append(ep.getEpisodeUrl());
+				buffer.append("\">Ver...");
+			} else {
+				buffer.append(ep.getSearchUrl());
+				buffer.append("\">Procurar...");
+			}
+			buffer.append("</a>\n");
 			buffer.append("</p>\n</div>\n");
 		}
 		buffer.append("</div>\n</div>\n</div>\n</body>\n</html>");
 		return buffer.toString();
+	}
+
+	public static void updateMissingEpisodes(String hostname, String seasonTag, String searchQueryUrl, int start, int stop, final List<Episode> episodes) {
+		
+		for (int i = start; i <= stop; i++) {
+			System.out.println("--------------------------------------------------------");
+			String queryUrl = hostname + searchQueryUrl + i;
+			System.out.println("queryUrl: " + queryUrl);
+			try {
+				
+				Episode episode = null;
+				if (i <= episodes.size()) {
+					episode = episodes.get(i-1);
+				}
+				
+				if (episode==null || episode.getVideoUrl().isEmpty()) {
+					episode = getEpisode(i, hostname, seasonTag, queryUrl);
+					System.out.println("URL: " + episode.getEpisodeUrl());
+					if (i <= episodes.size()) {
+						episodes.set(i-1, episode);
+					} else {
+						episodes.add(i-1, episode);
+					}
+				}
+			} catch (IOException e) {
+				System.out.println("Skip episode "+i);
+				continue;
+			}
+		}
+
 	}
 
 }
