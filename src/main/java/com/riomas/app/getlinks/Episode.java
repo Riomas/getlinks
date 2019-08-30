@@ -1,8 +1,12 @@
 package com.riomas.app.getlinks;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.Serializable;
 import java.net.MalformedURLException;
+import java.util.Date;
+
+import org.apache.commons.io.FileUtils;
 
 import com.gargoylesoftware.htmlunit.FailingHttpStatusCodeException;
 import com.gargoylesoftware.htmlunit.html.HtmlPage;
@@ -17,11 +21,13 @@ public class Episode implements Serializable{
 	private int episodeId;
 	private String episodeUrl="";
 	private String description="";
-	private String videoHtml="";
 	private String videoUrl="";
 	private String imageUrl="";
 	private String title="";
 	private String searchUrl="";
+	private double duration=0.0;
+	private String durationAsMinutes="";
+	private String destinationPath="";
 
 	public Episode(int episodeId) {
 		this.episodeId = episodeId;
@@ -47,7 +53,7 @@ public class Episode implements Serializable{
 
 	public void setEpisodeUrl(String episodeUrl, int id) throws FailingHttpStatusCodeException, MalformedURLException, IOException {
 		this.episodeUrl = episodeUrl;
-		//setVideoHtml(GetLinksUtil.getVideoHtml(episodeUrl));
+		
 		HtmlPage page = GetLinksUtil.getPage(episodeUrl, id);
 		try {
 			setVideoUrl(GetLinksUtil.getVideoUrl(page));
@@ -63,6 +69,21 @@ public class Episode implements Serializable{
 		setDescription(GetLinksUtil.getDescription(page));
 	}
 
+	public void downloadVideo(String prefixPath, String extention, boolean forceDownload) throws FailingHttpStatusCodeException, MalformedURLException, IOException {
+		setDestinationPath(prefixPath + File.separator + getTitle() + "." + extention);
+		File videoFile = GetLinksUtil.downloadFile(videoUrl, getDestinationPath(), forceDownload);
+		setDuration(GetLinksUtil.getDuration(videoFile));
+	}
+	
+	public void setDestinationPath(String destinationPath) {
+		this.destinationPath = destinationPath;		
+	}
+
+	public String getDestinationPath() {
+		return destinationPath;
+	}
+	
+
 	public String getDescription() {
 		return description;
 	}
@@ -71,20 +92,18 @@ public class Episode implements Serializable{
 		this.description = description;
 	}
 
-	public String getVideoHtml() {
-		return videoHtml;
-	}
-
-	public void setVideoHtml(String videoHtml) {
-		this.videoHtml = videoHtml;
-	}
-
 	public String getVideoUrl() {
 		return videoUrl;
 	}
 
 	public void setVideoUrl(String videoUrl) {
-		this.videoUrl = videoUrl;
+		if (videoUrl != null && videoUrl.startsWith("//")) {
+			this.videoUrl = "http:"+videoUrl;
+			System.out.println("Update videoUrl : '"+this.videoUrl+"'");
+		} else {
+			this.videoUrl = videoUrl;
+		}
+		
 	}
 
 	public String getImageUrl() {
@@ -111,13 +130,39 @@ public class Episode implements Serializable{
 		this.searchUrl = searchUrl;
 	}
 
+	public String getDurationAsMinutes() {
+		return durationAsMinutes;
+	}
+
+	public double getDuration() {
+		return duration;
+	}
+	
+	public void setDuration(double duration) {
+		this.duration = duration;
+		try {
+			Date seconds = GetLinksUtil.secondsFormat.parse(String.valueOf((double) this.duration));
+			if (this.duration >= 3600.0) {
+				this.durationAsMinutes = GetLinksUtil.literalHoursMinutesFormat.format(seconds);
+			} else {
+				this.durationAsMinutes = GetLinksUtil.literalMinutesFormat.format(seconds);
+			}
+			System.out.println("Length of video in minutes : " + this.durationAsMinutes);
+		} catch (java.text.ParseException e) {
+			e.printStackTrace();
+		}
+	}
+
 	@Override
 	public String toString() {
 		return "Episode [episodeId=" + episodeId + ", episodeUrl=" + episodeUrl + ", description=" + description
-				+ ", videoHtml=" + videoHtml + ", videoUrl=" + videoUrl + ", imageUrl=" + imageUrl + ", title=" + title
-				+ ", searchUrl=" + searchUrl + "]";
+				+ ", videoUrl=" + videoUrl + ", imageUrl=" + imageUrl + ", title=" + title + ", searchUrl=" + searchUrl
+				+ ", duration=" + duration + "]";
 	}
 
-	
+	public void deleteVideo() throws IOException {
+		FileUtils.forceDeleteOnExit(new File(getDestinationPath()));
+		setDestinationPath("");
+	}
 	
 }
