@@ -76,7 +76,7 @@ public class Episode implements Serializable{
 	}
 	
 	public void setDestinationPath(String destinationPath) {
-		this.destinationPath = destinationPath;		
+		this.destinationPath = destinationPath.replace(File.separatorChar, '/');		
 	}
 
 	public String getDestinationPath() {
