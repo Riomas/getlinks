@@ -1,7 +1,9 @@
 package com.riomas.app.getlinks;
 
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.io.StringWriter;
 import java.io.Writer;
 import java.net.MalformedURLException;
@@ -35,11 +37,12 @@ public class GetLinksUtil {
 	public static final String USER_AGENT_CHROME = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.113 Safari/537.36";
 
 	public static final DateFormat secondsFormat = new SimpleDateFormat("ss.SSS");
+
 	public static final DateFormat minutesFormat = new SimpleDateFormat("mm:ss");
 	public static final DateFormat hoursMinutesFormat = new SimpleDateFormat("H:mm:ss");
-	
-	public static final DateFormat literalMinutesFormat = new SimpleDateFormat("mm' min'");
-	public static final DateFormat literalHoursMinutesFormat = new SimpleDateFormat("H:mm' min'");
+
+	public static final DateFormat literalMinutesFormat = new SimpleDateFormat("m'm 's's'");
+	public static final DateFormat literalHoursMinutesFormat = new SimpleDateFormat("H'h 'm'm 's's'");
 	private static boolean downloadEnabled = false;
 	private static boolean durationEnabled = false;
 	private static String novelaPath = "";
@@ -56,7 +59,7 @@ public class GetLinksUtil {
 			try {
 				episode = getEpisode(i, hostname, seasonTag, queryUrl, forceDownload);
 				System.out.println("URL: " + episode.getEpisodeUrl());
-				
+
 			} catch (IOException e) {
 				try {
 					episode.deleteVideo();
@@ -72,20 +75,29 @@ public class GetLinksUtil {
 		return episodes;
 	}
 
-	private static Episode getEpisode(int id, String hostname, String seasonTag, String queryUrl, boolean forceDownload) throws IOException {
+	private static Episode getEpisode(int id, String hostname, String seasonTag, String queryUrl, boolean forceDownload)
+			throws IOException {
 		String content = getPage(queryUrl, id).getBody().asXml();
 		String tagEpisode = seasonTag + "---Episodio-" + id + "-";
 		int endIndex = content.indexOf(tagEpisode);
+		String episodeUrl = null;
 		if (endIndex == -1) {
-			Episode ep = new Episode(id);
-			ep.setSearchUrl(queryUrl);
-			return ep;
+			episodeUrl = promptConsole("Saisissez l'url de l'épisode "+id, 20);
+			if (episodeUrl.isEmpty()) {
+				Episode ep = new Episode(id);
+				ep.setSearchUrl(queryUrl);
+				return ep;
+			}
+		} else {
+			int beginIndex = content.substring(0, endIndex).lastIndexOf("=\"");
+			endIndex = content.indexOf("\"", endIndex);
+			episodeUrl = hostname + content.substring(beginIndex + 2, endIndex);
 		}
-		int beginIndex = content.substring(0, endIndex).lastIndexOf("=\"");
-		endIndex = content.indexOf("\"", endIndex);
-		Episode episode = new Episode(id, hostname + content.substring(beginIndex + 2, endIndex));
+		
+		Episode episode = new Episode(id, episodeUrl);
 		if (downloadEnabled || durationEnabled) {
-			episode.downloadVideo(FileUtils.getUserDirectoryPath() + File.separator + "Videos" + novelaPath, "mpg", forceDownload);
+			episode.downloadVideo(FileUtils.getUserDirectoryPath() + File.separator + "Videos" + novelaPath, "mpg",
+					forceDownload);
 			if (!downloadEnabled) {
 				episode.deleteVideo();
 			}
@@ -126,6 +138,30 @@ public class GetLinksUtil {
 			webClient.close();
 		}
 
+	}
+
+	static String promptConsole(String message, int timeoutInSeconds) {
+
+		String inputData = "";
+		
+		timeoutInSeconds *= 1000;
+
+		BufferedReader in = new BufferedReader(new InputStreamReader(System.in));
+		long startTime = System.currentTimeMillis();
+		try {
+			System.out.print(message+": ");
+			while ((System.currentTimeMillis() - startTime) < timeoutInSeconds && !in.ready()) {
+			}
+
+			if (in.ready()) {
+				inputData = in.readLine();
+				System.out.println("Votre saisie: " + inputData);
+			} else {
+				System.out.println("Aucune saisie");
+			}
+		} catch (IOException e) {
+		}
+		return inputData;
 	}
 
 	static public WebClient gethtmlUnitClient() {
@@ -215,7 +251,7 @@ public class GetLinksUtil {
 		return lengthInSeconds;
 
 	}
-	
+
 	public static void updateMissingEpisodes(String hostname, String seasonTag, String searchQueryUrl, int start,
 			int stop, final List<Episode> episodes, boolean forceDownload) {
 		Episode episode = null;
@@ -226,8 +262,10 @@ public class GetLinksUtil {
 			try {
 				if (i <= episodes.size()) {
 					episode = episodes.get(i - 1);
-					if (downloadEnabled || durationEnabled) {
-						episode.downloadVideo(FileUtils.getUserDirectoryPath() + File.separator + "Videos" + novelaPath, "mpg", forceDownload);
+					if ((downloadEnabled || durationEnabled) && !episode.getVideoUrl().isEmpty()) {
+						episode.downloadVideo(FileUtils.getUserDirectoryPath() + File.separator + "Videos" + novelaPath,
+								"mpg", forceDownload);
+
 						if (!downloadEnabled) {
 							episode.deleteVideo();
 						}
@@ -303,7 +341,7 @@ public class GetLinksUtil {
 	}
 
 	public static void setNovelaPath(String path) {
-		novelaPath = path.isBlank()?"":File.separator + path;
+		novelaPath = path.isEmpty() ? "" : File.separator + path;
 	}
 
 }

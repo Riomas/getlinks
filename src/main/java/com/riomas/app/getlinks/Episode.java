@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.io.Serializable;
 import java.net.MalformedURLException;
 import java.util.Date;
+import java.util.Objects;
 
 import org.apache.commons.io.FileUtils;
 
@@ -27,6 +28,7 @@ public class Episode implements Serializable{
 	private String searchUrl="";
 	private double duration=0.0;
 	private String durationAsMinutes="";
+	private String literalDuration="";
 	private String destinationPath="";
 
 	public Episode(int episodeId) {
@@ -36,7 +38,7 @@ public class Episode implements Serializable{
 	
 	public Episode(int episodeId, String episodeUrl) throws FailingHttpStatusCodeException, MalformedURLException, IOException {
 		this.setEpisodeId(episodeId);
-		this.setEpisodeUrl(episodeUrl, episodeId);
+		this.setEpisodeUrl(episodeUrl);
 	}
 
 	public int getEpisodeId() {
@@ -51,10 +53,10 @@ public class Episode implements Serializable{
 		return episodeUrl;
 	}
 
-	public void setEpisodeUrl(String episodeUrl, int id) throws FailingHttpStatusCodeException, MalformedURLException, IOException {
+	public void setEpisodeUrl(String episodeUrl) throws FailingHttpStatusCodeException, MalformedURLException, IOException {
 		this.episodeUrl = episodeUrl;
 		
-		HtmlPage page = GetLinksUtil.getPage(episodeUrl, id);
+		HtmlPage page = GetLinksUtil.getPage(this.episodeUrl, this.episodeId);
 		try {
 			setVideoUrl(GetLinksUtil.getVideoUrl(page));
 		} catch (TagNameNotFoundException e) {
@@ -130,6 +132,10 @@ public class Episode implements Serializable{
 		this.searchUrl = searchUrl;
 	}
 
+	public String getLiteralDuration() {
+		return literalDuration;
+	}
+	
 	public String getDurationAsMinutes() {
 		return durationAsMinutes;
 	}
@@ -143,9 +149,11 @@ public class Episode implements Serializable{
 		try {
 			Date seconds = GetLinksUtil.secondsFormat.parse(String.valueOf((double) this.duration));
 			if (this.duration >= 3600.0) {
-				this.durationAsMinutes = GetLinksUtil.literalHoursMinutesFormat.format(seconds);
+				this.literalDuration = GetLinksUtil.literalHoursMinutesFormat.format(seconds);
+				this.durationAsMinutes = GetLinksUtil.hoursMinutesFormat.format(seconds);
 			} else {
-				this.durationAsMinutes = GetLinksUtil.literalMinutesFormat.format(seconds);
+				this.literalDuration = GetLinksUtil.literalMinutesFormat.format(seconds);
+				this.durationAsMinutes = GetLinksUtil.minutesFormat.format(seconds);
 			}
 			System.out.println("Length of video in minutes : " + this.durationAsMinutes);
 		} catch (java.text.ParseException e) {
@@ -153,16 +161,36 @@ public class Episode implements Serializable{
 		}
 	}
 
-	@Override
-	public String toString() {
-		return "Episode [episodeId=" + episodeId + ", episodeUrl=" + episodeUrl + ", description=" + description
-				+ ", videoUrl=" + videoUrl + ", imageUrl=" + imageUrl + ", title=" + title + ", searchUrl=" + searchUrl
-				+ ", duration=" + duration + "]";
-	}
-
 	public void deleteVideo() throws IOException {
 		FileUtils.forceDeleteOnExit(new File(getDestinationPath()));
 		setDestinationPath("");
 	}
+
+	@Override
+	public String toString() {
+		return "Episode [episodeId=" + episodeId + ", episodeUrl=" + episodeUrl + ", description=" + description
+				+ ", videoUrl=" + videoUrl + ", imageUrl=" + imageUrl + ", title=" + title + ", searchUrl=" + searchUrl
+				+ ", duration=" + duration + ", durationAsMinutes=" + durationAsMinutes + ", literalDuration="
+				+ literalDuration + ", destinationPath=" + destinationPath + "]";
+	}
+
+	@Override
+	public int hashCode() {
+		return Objects.hash(episodeId, title);
+	}
+
+	@Override
+	public boolean equals(Object obj) {
+		if (this == obj)
+			return true;
+		if (obj == null)
+			return false;
+		if (getClass() != obj.getClass())
+			return false;
+		Episode other = (Episode) obj;
+		return episodeId == other.episodeId && Objects.equals(title, other.title);
+	}
+	
+	
 	
 }

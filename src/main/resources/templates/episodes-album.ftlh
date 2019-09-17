@@ -131,7 +131,7 @@
 			                </div>
 			                
 			                <#if ep.durationAsMinutes?hasContent>
-			                <small class="text-muted">${ep.durationAsMinutes}</small>
+			                <small class="text-muted" title="${ep.literalDuration}">${ep.durationAsMinutes}</small>
 			                </#if>
 			              </div>
 			            </div>
