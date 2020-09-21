@@ -15,6 +15,7 @@ import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.DefaultParser;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
+import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.StringUtils;
 
 import freemarker.template.Configuration;
@@ -27,12 +28,15 @@ import freemarker.template.TemplateNotFoundException;
  *
  */
 public class App {
-	static final String HOSTNAME = "http://sic.sapo.pt";
+	static final String DEFAULT_HOSTNAME = "https://sic.pt";
 	static final String SEARCH_QUERY_URL = "/pesquisa?q=%s+Episodio+";
-	//static final String CONTEXT_URL = "/Programas/%s/episodios";
+	static final String API_EPISODES_URL = "/api/molecule/category/Programas%s/episodios";
 
 	public static void main(String[] args) {
 		CommandLine cmd = getCommandLine(args);
+		assert cmd != null;
+		String hostname = cmd.getOptionValue("host", DEFAULT_HOSTNAME);
+		String urlNovela = cmd.getOptionValue("url");
 		String novela = cmd.getOptionValue('n');
 		String[] keywords = novela.split(" ");
 		String searchQuery = String.format(SEARCH_QUERY_URL, StringUtils.join(keywords, '+'));
@@ -41,19 +45,31 @@ public class App {
 				+ ".html";
 		String saveFileName = cmd.getOptionValue('o') + File.separatorChar + StringUtils.join(keywords, "")
 		+ ".out";
+		String inputFilename = "src/main/resources/episodes" + File.separatorChar + cmd.getOptionValue('i');
 
-		int start = Integer.valueOf(cmd.getOptionValue('b'));
-		int stop = Integer.valueOf(cmd.getOptionValue('e'));
+
+		int start = Integer.parseInt(cmd.getOptionValue('b', "0"));
+		int stop = Integer.parseInt(cmd.getOptionValue('e', "0"));
 		
 		String seasonTag = cmd.getOptionValue('s');
 		
 		boolean force = cmd.hasOption('f');
 		boolean downloadVideos = cmd.hasOption('D');
 		boolean durationVideos = cmd.hasOption('d');
-		
+
+		String urlApi;
+		if (urlNovela.startsWith("/api/")) {
+			urlApi = urlNovela;
+		} else {
+			urlApi = String.format(API_EPISODES_URL, urlNovela);
+		}
 		File outputFile = new File(outputFileName);
 		File saveFile = new File(saveFileName);
-		
+		try {
+			FileUtils.forceMkdirParent(saveFile);
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
 		List<Episode> episodes = readFromFile(saveFile);
 		
 		//String context = String.format(CONTEXT_URL, StringUtils.join(keywords, "")).toLowerCase();
@@ -62,9 +78,13 @@ public class App {
 		GetLinksUtil.setDurationVideos(durationVideos);
 		
 		if (episodes==null || force) {
-			episodes = GetLinksUtil.getAllEpisodes(HOSTNAME, seasonTag, searchQuery, start, stop, force);
+			//episodes = GetLinksUtil.getAllEpisodes(hostname, seasonTag, searchQuery, start, stop, force);
+			//episodes = GetLinksUtil.getAllEpisodesFromHtml(hostname, inputFilename, start, stop, force);
+			episodes = GetLinksUtil.getAllEpisodesFromApi(hostname, urlApi, start, stop, force);
+
 		} else {
-			GetLinksUtil.updateMissingEpisodes(HOSTNAME, seasonTag, searchQuery, start, stop, episodes, force);
+			//GetLinksUtil.updateMissingEpisodes(hostname, seasonTag, searchQuery, start, stop, episodes, force);
+			GetLinksUtil.updateMissingEpisodesFromApi(hostname, urlApi, start, stop, episodes, force);
 		}
 		
 		System.out.println("Total episodes : " + episodes.size());
@@ -122,14 +142,21 @@ public class App {
 
 		System.out.println("HTML generated!");
 
+		FileWriter fw=null;
 		try {
-			FileWriter fw = new FileWriter(outputFile);
+			fw = new FileWriter(outputFile);
 			fw.append(bufferHTML);
 			fw.flush();
-			fw.close();
 			System.out.println("Write episodes to '"+outputFile.getAbsolutePath()+"'");
 		} catch (IOException e) {
 			System.err.println("Unexpected exception:" + e.getMessage());
+		} finally {
+			assert fw!=null;
+			try {
+				fw.close();
+			} catch (IOException e) {
+				System.err.println("Unexpected exception:" + e.getMessage());
+			}
 		}
 		System.out.println("End process.");
 
@@ -181,7 +208,10 @@ public class App {
 		options.addOption("f", "force", false, "Force update all episodes");
 		options.addOption("D", "download", false, "Download videos of episodes");
 		options.addOption("d", "duration", false, "Get duration of episodes");
-		
+		options.addOption("i", "input", true, "input file extracted from official website");
+		options.addOption("h", "host", true, "base url official website");
+		options.addOption(null, "url", true, "url of the novela");
+
 		try {
 			// parse the command line arguments
 			return parser.parse(options, args);

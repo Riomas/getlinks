@@ -36,7 +36,7 @@ public class Episode implements Serializable{
 		this.title = "Episódio " + episodeId;
 	}
 	
-	public Episode(int episodeId, String episodeUrl) throws FailingHttpStatusCodeException, MalformedURLException, IOException {
+	public Episode(int episodeId, String episodeUrl) throws FailingHttpStatusCodeException, IOException {
 		this.setEpisodeId(episodeId);
 		this.setEpisodeUrl(episodeUrl);
 	}
@@ -53,10 +53,10 @@ public class Episode implements Serializable{
 		return episodeUrl;
 	}
 
-	public void setEpisodeUrl(String episodeUrl) throws FailingHttpStatusCodeException, MalformedURLException, IOException {
+	public void setEpisodeUrl(String episodeUrl) throws FailingHttpStatusCodeException, IOException {
 		this.episodeUrl = episodeUrl;
 		
-		HtmlPage page = GetLinksUtil.getPage(this.episodeUrl, this.episodeId);
+		HtmlPage page = GetLinksUtil.getPage(this.episodeUrl);
 		try {
 			setVideoUrl(GetLinksUtil.getVideoUrl(page));
 		} catch (TagNameNotFoundException e) {
@@ -69,6 +69,7 @@ public class Episode implements Serializable{
 		}
 		setTitle(GetLinksUtil.getTitle(page));
 		setDescription(GetLinksUtil.getDescription(page));
+		setEpisodeId(GetLinksUtil.getEpisodeId(getTitle(), episodeId));
 	}
 
 	public void downloadVideo(String prefixPath, String extention, boolean forceDownload) throws FailingHttpStatusCodeException, MalformedURLException, IOException {

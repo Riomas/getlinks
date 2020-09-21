@@ -24,7 +24,8 @@
 			<div class="row">
 				<#list episodes as ep>
 					<div class="col-md-4">
-			          <div class="card mb-4 shadow-sm" id="episode${ep.episodeId}">
+					  <div class="card mb-4 shadow-sm">
+						  <a id="episode${ep.episodeId}"></a>
 			          	<#if ep.videoUrl?hasContent>
 			          		<#if ep.imageUrl?startsWith("//")>
 								<#assign imagePath = "http:"+ep.imageUrl />
