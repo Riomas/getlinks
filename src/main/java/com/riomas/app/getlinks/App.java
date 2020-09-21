@@ -29,7 +29,6 @@ import freemarker.template.TemplateNotFoundException;
  */
 public class App {
 	static final String DEFAULT_HOSTNAME = "https://sic.pt";
-	static final String SEARCH_QUERY_URL = "/pesquisa?q=%s+Episodio+";
 	static final String API_EPISODES_URL = "/api/molecule/category/Programas%s/episodios";
 
 	public static void main(String[] args) {
@@ -39,20 +38,15 @@ public class App {
 		String urlNovela = cmd.getOptionValue("url");
 		String novela = cmd.getOptionValue('n');
 		String[] keywords = novela.split(" ");
-		String searchQuery = String.format(SEARCH_QUERY_URL, StringUtils.join(keywords, '+'));
 
 		String outputFileName = cmd.getOptionValue('o') + File.separatorChar + StringUtils.join(keywords, "")
 				+ ".html";
 		String saveFileName = cmd.getOptionValue('o') + File.separatorChar + StringUtils.join(keywords, "")
 		+ ".out";
-		String inputFilename = "src/main/resources/episodes" + File.separatorChar + cmd.getOptionValue('i');
-
 
 		int start = Integer.parseInt(cmd.getOptionValue('b', "0"));
 		int stop = Integer.parseInt(cmd.getOptionValue('e', "0"));
-		
-		String seasonTag = cmd.getOptionValue('s');
-		
+
 		boolean force = cmd.hasOption('f');
 		boolean downloadVideos = cmd.hasOption('D');
 		boolean durationVideos = cmd.hasOption('d');
@@ -71,28 +65,21 @@ public class App {
 			e.printStackTrace();
 		}
 		List<Episode> episodes = readFromFile(saveFile);
-		
-		//String context = String.format(CONTEXT_URL, StringUtils.join(keywords, "")).toLowerCase();
+
 		GetLinksUtil.setNovelaPath(novela);
 		GetLinksUtil.setDownloadVideos(downloadVideos);
 		GetLinksUtil.setDurationVideos(durationVideos);
 		
 		if (episodes==null || force) {
-			//episodes = GetLinksUtil.getAllEpisodes(hostname, seasonTag, searchQuery, start, stop, force);
-			//episodes = GetLinksUtil.getAllEpisodesFromHtml(hostname, inputFilename, start, stop, force);
 			episodes = GetLinksUtil.getAllEpisodesFromApi(hostname, urlApi, start, stop, force);
-
 		} else {
-			//GetLinksUtil.updateMissingEpisodes(hostname, seasonTag, searchQuery, start, stop, episodes, force);
 			GetLinksUtil.updateMissingEpisodesFromApi(hostname, urlApi, start, stop, episodes, force);
 		}
 		
 		System.out.println("Total episodes : " + episodes.size());
 
 		saveToFile(saveFile, episodes);
-		
-		//String buffer = GetLinksUtil.toHTML(novela, episodes);
-		
+
 		Configuration cfg = new Configuration(Configuration.VERSION_2_3_29);
 		// Specify the source where the template files come from. Here I set a
 		// plain directory for it, but non-file-system sources are possible too:
@@ -204,11 +191,9 @@ public class App {
 		options.addOption("n", "name", true, "Name of Novela.");
 		options.addOption("b", "begin", true, "Begin at episode number.");
 		options.addOption("e", "end", true, "End at episode number .");
-		options.addOption("s", "season", true, "Season tag, ex: T2");
 		options.addOption("f", "force", false, "Force update all episodes");
 		options.addOption("D", "download", false, "Download videos of episodes");
 		options.addOption("d", "duration", false, "Get duration of episodes");
-		options.addOption("i", "input", true, "input file extracted from official website");
 		options.addOption("h", "host", true, "base url official website");
 		options.addOption(null, "url", true, "url of the novela");
 

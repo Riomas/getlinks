@@ -7,11 +7,19 @@ import java.net.MalformedURLException;
 import java.util.Date;
 import java.util.Objects;
 
+import lombok.Builder;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
+import lombok.ToString;
 import org.apache.commons.io.FileUtils;
 
 import com.gargoylesoftware.htmlunit.FailingHttpStatusCodeException;
 import com.gargoylesoftware.htmlunit.html.HtmlPage;
 
+@Data
+@ToString
+@EqualsAndHashCode
+@Builder
 public class Episode implements Serializable{
 
 	/**
@@ -39,18 +47,6 @@ public class Episode implements Serializable{
 	public Episode(int episodeId, String episodeUrl) throws FailingHttpStatusCodeException, IOException {
 		this.setEpisodeId(episodeId);
 		this.setEpisodeUrl(episodeUrl);
-	}
-
-	public int getEpisodeId() {
-		return episodeId;
-	}
-
-	public void setEpisodeId(int episodeId) {
-		this.episodeId = episodeId;
-	}
-
-	public String getEpisodeUrl() {
-		return episodeUrl;
 	}
 
 	public void setEpisodeUrl(String episodeUrl) throws FailingHttpStatusCodeException, IOException {
@@ -82,23 +78,6 @@ public class Episode implements Serializable{
 		this.destinationPath = destinationPath.replace(File.separatorChar, '/');		
 	}
 
-	public String getDestinationPath() {
-		return destinationPath;
-	}
-	
-
-	public String getDescription() {
-		return description;
-	}
-
-	public void setDescription(String description) {
-		this.description = description;
-	}
-
-	public String getVideoUrl() {
-		return videoUrl;
-	}
-
 	public void setVideoUrl(String videoUrl) {
 		if (videoUrl != null && videoUrl.startsWith("//")) {
 			this.videoUrl = "http:"+videoUrl;
@@ -109,42 +88,6 @@ public class Episode implements Serializable{
 		
 	}
 
-	public String getImageUrl() {
-		return imageUrl;
-	}
-
-	public void setImageUrl(String imageUrl) {
-		this.imageUrl = imageUrl;
-	}
-
-	public String getTitle() {
-		return title;
-	}
-
-	public void setTitle(String title) {
-		this.title = title;
-	}
-
-	public String getSearchUrl() {
-		return searchUrl;
-	}
-
-	public void setSearchUrl(String searchUrl) {
-		this.searchUrl = searchUrl;
-	}
-
-	public String getLiteralDuration() {
-		return literalDuration;
-	}
-	
-	public String getDurationAsMinutes() {
-		return durationAsMinutes;
-	}
-
-	public double getDuration() {
-		return duration;
-	}
-	
 	public void setDuration(double duration) {
 		this.duration = duration;
 		try {
@@ -165,14 +108,6 @@ public class Episode implements Serializable{
 	public void deleteVideo() throws IOException {
 		FileUtils.forceDeleteOnExit(new File(getDestinationPath()));
 		setDestinationPath("");
-	}
-
-	@Override
-	public String toString() {
-		return "Episode [episodeId=" + episodeId + ", episodeUrl=" + episodeUrl + ", description=" + description
-				+ ", videoUrl=" + videoUrl + ", imageUrl=" + imageUrl + ", title=" + title + ", searchUrl=" + searchUrl
-				+ ", duration=" + duration + ", durationAsMinutes=" + durationAsMinutes + ", literalDuration="
-				+ literalDuration + ", destinationPath=" + destinationPath + "]";
 	}
 
 	@Override

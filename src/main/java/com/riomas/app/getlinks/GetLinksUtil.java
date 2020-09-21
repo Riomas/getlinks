@@ -42,9 +42,6 @@ import freemarker.template.TemplateNotFoundException;
 
 public class GetLinksUtil {
 
-	public static final String USER_AGENT_EDGE = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/52.0.2743.116 Safari/537.36 Edge/15.15063";
-	public static final String USER_AGENT_CHROME = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.113 Safari/537.36";
-
 	public static final DateFormat secondsFormat = new SimpleDateFormat("ss.SSS");
 
 	public static final DateFormat minutesFormat = new SimpleDateFormat("mm:ss");
@@ -55,34 +52,6 @@ public class GetLinksUtil {
 	private static boolean downloadEnabled = false;
 	private static boolean durationEnabled = false;
 	private static String novelaPath = "";
-
-	public static List<Episode> getAllEpisodes(String hostname, String seasonTag, String searchQueryUrl, int start,
-			int stop, boolean forceDownload) {
-
-		List<Episode> episodes = new ArrayList<Episode>();
-		Episode episode = null;
-		for (int i = start; i <= stop; i++) {
-			System.out.println("--------------------------------------------------------");
-			String queryUrl = hostname + searchQueryUrl + i;
-			System.out.println("queryUrl: " + queryUrl);
-			try {
-				episode = getEpisode(i, hostname, seasonTag, queryUrl, forceDownload);
-				System.out.println("URL: " + episode.getEpisodeUrl());
-
-			} catch (IOException e) {
-				try {
-					episode.deleteVideo();
-				} catch (IOException e1) {
-					// TODO Auto-generated catch block
-					e1.printStackTrace();
-				}
-				System.out.println("Skip episode " + i);
-				continue;
-			}
-			episodes.add(episode);
-		}
-		return episodes;
-	}
 
 	public static List<Episode> getAllEpisodesFromApi(final String hostname, String url, int start,
 													   int stop, boolean forceDownload) {
@@ -184,68 +153,6 @@ public class GetLinksUtil {
 		return null;
 	}
 
-	public static List<Episode> getAllEpisodesFromHtml(final String hostname, String inputFilename, int start,
-											   int stop, boolean forceDownload) {
-
-		File inputFile = FileUtils.getFile(inputFilename);
-		assert inputFile.exists();
-
-		ArrayList episodes = new ArrayList();
-
-		try {
-			String rawEpisodes = FileUtils.readFileToString(inputFile, Charset.forName("UTF8"));
-
-			String[] listHtmlEpisodes = rawEpisodes.substring(rawEpisodes.indexOf("<li "), rawEpisodes.lastIndexOf("</li>")).split("<li ");
-
-			Episode episode = null;
-			int count=1;
-
-		for (String htmlEpisode: listHtmlEpisodes) {
-			if (start > count) {
-				count++;
-				continue;
-			}
-			if (stop == count) {
-				break;
-			}
-			if (htmlEpisode.isEmpty()) {
-				continue;
-			}
-
-			int figurePos = htmlEpisode.indexOf("<figure>");
-			if (figurePos < 0) {
-				continue;
-			}
-			int hrefPos = htmlEpisode.indexOf("href=", figurePos);
-			int beginLinkPos = htmlEpisode.indexOf("\"", hrefPos)+1;
-			int endlinkPos = htmlEpisode.indexOf("\"", beginLinkPos);
-
-			String pageUrl = hostname + htmlEpisode.substring(beginLinkPos, endlinkPos);
-			System.out.println("--------------------------------------------------------");
-			System.out.println("pageUrl: " + pageUrl);
-			try {
-				episode = getEpisode(count, pageUrl, forceDownload);
-				System.out.println("URL: " + episode.getEpisodeUrl());
-
-			} catch (IOException e) {
-				try {
-					episode.deleteVideo();
-				} catch (IOException e1) {
-					// TODO Auto-generated catch block
-					e1.printStackTrace();
-				}
-				System.out.println("Skip episode " + count);
-				continue;
-			}
-			episodes.add(episode);
-			count++;
-		}
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
-		return episodes;
-	}
-
 	private static Episode getEpisode(int id, String hostname, String seasonTag, String queryUrl, boolean forceDownload)
 			throws IOException {
 		String content = getPage(queryUrl).getBody().asXml();
@@ -302,35 +209,13 @@ public class GetLinksUtil {
 		return episode;
 	}
 
-	static String getVideoHtml(String queryUrl, int id)
-			throws FailingHttpStatusCodeException, MalformedURLException, IOException, TagNameNotFoundException {
-		HtmlPage page = getPage(queryUrl);
-		DomNodeList<DomElement> elements = page.getElementsByTagName("video");
-		if (elements.size() > 0) {
-			return elements.get(0).getParentNode().asXml();
-		}
-		throw new TagNameNotFoundException(
-				"Could not found tagName: 'source' in this page: '" + page.getTitleText() + "'");
-	}
-
-	static HtmlPage getPage(String queryUrl)
-			throws FailingHttpStatusCodeException {
+	static HtmlPage getPage(String queryUrl) throws FailingHttpStatusCodeException {
 		WebClient webClient = gethtmlUnitClient();
-		// webClient.waitForBackgroundJavaScript(60000);
 
 		try {
 			HtmlPage page = null;
 			try {
-//				webClient.waitForBackgroundJavaScript(20000);
 				page = webClient.getPage(queryUrl);
-//				int cpt = 0;
-
-//				HtmlElement body = page.getBody();
-//				while (cpt < 20 && !body.asXml().contains("<video")) {
-//					System.out.println((cpt++) + " waiting js jobs ");
-//					try {Thread.sleep(1000);} catch (InterruptedException e) {}
-//					body = page.getBody();
-//				}
 			} catch (Exception e) {
 				System.out.println("Get page error: " + e.getMessage());
 			}
@@ -368,11 +253,6 @@ public class GetLinksUtil {
 
 	static public WebClient gethtmlUnitClient() {
 		WebClient webClient = new WebClient(BrowserVersion.BEST_SUPPORTED);
-		// webClient.setAjaxController(new NicelyResynchronizingAjaxController());
-		// webClient.setIncorrectnessListener(new IncorrectnessListenerImpl());
-		// webClient.setCssErrorHandler(new DefaultCssErrorHandler());
-		// webClient.setJavaScriptErrorListener(new DefaultJavaScriptErrorListener());
-		// webClient.setHTMLParserListener(HTMLParserListener.LOG_REPORTER);
 		webClient.getOptions().setThrowExceptionOnScriptError(false);
 		webClient.getOptions().setCssEnabled(false);
 		webClient.getOptions().setDownloadImages(false);
@@ -484,51 +364,6 @@ public class GetLinksUtil {
 
 	}
 
-	public static void updateMissingEpisodes(String hostname, String seasonTag, String searchQueryUrl, int start,
-			int stop, final List<Episode> episodes, boolean forceDownload) {
-		Episode episode = null;
-		for (int i = start; i <= stop; i++) {
-			System.out.println("--------------------------------------------------------");
-			String queryUrl = hostname + searchQueryUrl + i;
-			System.out.println("queryUrl: " + queryUrl);
-			try {
-				if (i <= episodes.size()) {
-					episode = episodes.get(i - 1);
-					if ((downloadEnabled || durationEnabled) && !episode.getVideoUrl().isEmpty()) {
-						episode.downloadVideo(FileUtils.getUserDirectoryPath() + File.separator + "Videos" + novelaPath,
-								"mpg", forceDownload);
-
-						if (!downloadEnabled) {
-							episode.deleteVideo();
-						}
-					}
-				} else {
-					episode = null;
-				}
-
-				if (episode == null || episode.getVideoUrl().isEmpty() || episode.getVideoUrl().startsWith("//")) {
-					episode = getEpisode(i, hostname, seasonTag, queryUrl, forceDownload);
-					System.out.println("URL: " + episode.getEpisodeUrl());
-					if (i <= episodes.size()) {
-						episodes.set(i - 1, episode);
-					} else {
-						episodes.add(i - 1, episode);
-					}
-				}
-			} catch (IOException e) {
-				try {
-					episode.deleteVideo();
-				} catch (IOException e1) {
-					// TODO Auto-generated catch block
-					e1.printStackTrace();
-				}
-				System.out.println("Skip episode " + i);
-				continue;
-			}
-		}
-
-	}
-
 	public static void updateMissingEpisodesFromApi(String hostname, String url, int start,
 													int stop, final List<Episode> episodes, boolean forceDownload) {
 		List<Episode> allEpisodesFromApi = getAllEpisodesFromApi(hostname, url, start, stop, false);
@@ -631,7 +466,6 @@ public class GetLinksUtil {
 
 	public static void setDurationVideos(boolean enabled) {
 		durationEnabled = enabled;
-
 	}
 
 	public static void setNovelaPath(String path) {
