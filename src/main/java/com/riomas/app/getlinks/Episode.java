@@ -7,6 +7,7 @@ import java.net.MalformedURLException;
 import java.util.Date;
 import java.util.Objects;
 
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
@@ -18,8 +19,8 @@ import com.gargoylesoftware.htmlunit.html.HtmlPage;
 
 @Data
 @ToString
-@EqualsAndHashCode
 @Builder
+@AllArgsConstructor
 public class Episode implements Serializable{
 
 	/**
@@ -28,15 +29,25 @@ public class Episode implements Serializable{
 	private static final long serialVersionUID = 2945752214067798146L;
 	
 	private int episodeId;
+	@Builder.Default
 	private String episodeUrl="";
+	@Builder.Default
 	private String description="";
+	@Builder.Default
 	private String videoUrl="";
+	@Builder.Default
 	private String imageUrl="";
+	@Builder.Default
 	private String title="";
+	@Builder.Default
 	private String searchUrl="";
+	@Builder.Default
 	private double duration=0.0;
+	@Builder.Default
 	private String durationAsMinutes="";
+	@Builder.Default
 	private String literalDuration="";
+	@Builder.Default
 	private String destinationPath="";
 
 	public Episode(int episodeId) {
@@ -126,7 +137,4 @@ public class Episode implements Serializable{
 		Episode other = (Episode) obj;
 		return episodeId == other.episodeId && Objects.equals(title, other.title);
 	}
-	
-	
-	
 }
