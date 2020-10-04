@@ -80,7 +80,7 @@ public class Episode implements Serializable{
 	}
 
 	public void downloadVideo(String prefixPath, String extention, boolean forceDownload) throws FailingHttpStatusCodeException, MalformedURLException, IOException {
-		setDestinationPath(prefixPath + File.separator + getTitle() + "." + extention);
+		setDestinationPath(prefixPath + File.separator + getTitle().trim() + "." + extention);
 		File videoFile = GetLinksUtil.downloadFile(videoUrl, getDestinationPath(), forceDownload);
 		setDuration(GetLinksUtil.getDuration(videoFile));
 	}

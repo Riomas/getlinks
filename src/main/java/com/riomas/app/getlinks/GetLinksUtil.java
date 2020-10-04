@@ -53,6 +53,9 @@ public class GetLinksUtil {
 	private static boolean durationEnabled = false;
 	private static String novelaPath = "";
 
+	public static final String DEFAULT_VIDEO_HOSTNAME = "https://videos.impresa.pt";
+	public static final String DEFAULT_IMAGE_HOSTNAME = "//images.impresa.pt";
+
 	public static List<Episode> getAllEpisodesFromApi(final String hostname, String url, int start,
 													   int stop, boolean forceDownload) {
 		HtmlPage page = getPage(hostname + url);
@@ -216,6 +219,9 @@ public class GetLinksUtil {
 			HtmlPage page = null;
 			try {
 				page = webClient.getPage(queryUrl);
+				while (page.getReadyState().equals("loading")) {
+					Thread.sleep(1000);
+				}
 			} catch (Exception e) {
 				System.out.println("Get page error: " + e.getMessage());
 			}
@@ -264,36 +270,48 @@ public class GetLinksUtil {
 	}
 
 	static String getVideoUrl(HtmlPage page)
-			throws FailingHttpStatusCodeException, MalformedURLException, IOException, TagNameNotFoundException {
-		DomNodeList<HtmlElement> videoElements = page
+			throws FailingHttpStatusCodeException, TagNameNotFoundException {
+
+		HtmlElement articleElement = page
 				.getBody()
-				.getElementsByTagName("video");
-		String videoUrl = videoElements
+				.getElementsByTagName("article")
 				.stream()
+				.filter(htmlElement -> htmlElement.getAttribute("class").contains("AT-video"))
 				.findFirst()
-				.map(htmlElement -> {
-					String src = htmlElement.getElementsByTagName("source")
-							.stream()
-							.findFirst()
-							.map(htmlElement1 -> htmlElement1.getAttribute("src")).orElse("");
-					return src.startsWith("//")?"https:"+src:src;
-				})
-				.orElse("");
-		if (!videoUrl.isEmpty()) {
-			return videoUrl;
+				.orElse(null);
+		int begin = articleElement.asXml().indexOf(DEFAULT_VIDEO_HOSTNAME);
+		if (begin>-1) {
+			int end = articleElement.asXml().indexOf('"', begin);
+			String videoUrl = articleElement.asXml().substring(begin, end);
+			if (!videoUrl.isEmpty()) {
+				return videoUrl;
+			}
 		}
+
 		throw new TagNameNotFoundException(
-				"Could not found tagName: 'source' in this page: '" + page.getTitleText() + "'");
+				"Could not found tagName: 'article' in this page: '" + page.getTitleText() + "'");
 	}
 
 	static String getImageUrl(HtmlPage page)
 			throws FailingHttpStatusCodeException, MalformedURLException, IOException, TagNameNotFoundException {
-		List<DomElement> elements = page.getElementsByTagName("video");
-		if (elements.size() > 0) {
-			return elements.get(0).getAttribute("poster");
+		HtmlElement articleElement = page
+				.getBody()
+				.getElementsByTagName("article")
+				.stream()
+				.filter(htmlElement -> htmlElement.getAttribute("class").contains("AT-video"))
+				.findFirst()
+				.orElse(null);
+		int begin = articleElement.asXml().indexOf(DEFAULT_IMAGE_HOSTNAME);
+		if (begin>-1) {
+			int end = articleElement.asXml().indexOf('"', begin);
+			String imageUrl = articleElement.asXml().substring(begin, end);
+			if (!imageUrl.isEmpty()) {
+				return imageUrl.startsWith("//")?"https:"+imageUrl:imageUrl;
+			}
 		}
+
 		throw new TagNameNotFoundException(
-				"Could not found tagName: 'video' in this page: '" + page.getTitleText() + "'");
+				"Could not found tagName: 'article' in this page: '" + page.getTitleText() + "'");
 	}
 
 	static String getTitle(HtmlPage page) throws FailingHttpStatusCodeException {
@@ -395,7 +413,7 @@ public class GetLinksUtil {
 					episode = null;
 				}
 
-				if (episode == null || episode.getVideoUrl().isEmpty() || episode.getVideoUrl().startsWith("//")) {
+				if (episode == null || episode.getVideoUrl() ==null || episode.getVideoUrl().isEmpty() || episode.getVideoUrl().startsWith("//")) {
 					int finalI = count;
 					episode = allEpisodesFromApi
 							.stream()
