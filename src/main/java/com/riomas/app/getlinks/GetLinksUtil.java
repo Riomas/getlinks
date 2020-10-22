@@ -1,54 +1,38 @@
 package com.riomas.app.getlinks;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.StringWriter;
-import java.io.Writer;
-import java.net.MalformedURLException;
-import java.net.URL;
-import java.nio.charset.Charset;
-import java.text.DateFormat;
-import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.StringTokenizer;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
-
-import com.gargoylesoftware.htmlunit.WebClient;
-import com.gargoylesoftware.htmlunit.WebResponse;
-import com.gargoylesoftware.htmlunit.html.HtmlElement;
-import org.apache.commons.io.FileUtils;
-
 import com.coremedia.iso.IsoFile;
 import com.gargoylesoftware.htmlunit.BrowserVersion;
-import com.gargoylesoftware.htmlunit.FailingHttpStatusCodeException;
+import com.gargoylesoftware.htmlunit.WebClient;
 import com.gargoylesoftware.htmlunit.html.DomElement;
 import com.gargoylesoftware.htmlunit.html.DomNodeList;
+import com.gargoylesoftware.htmlunit.html.HtmlElement;
 import com.gargoylesoftware.htmlunit.html.HtmlPage;
-
 import freemarker.core.ParseException;
 import freemarker.template.MalformedTemplateNameException;
 import freemarker.template.Template;
 import freemarker.template.TemplateException;
 import freemarker.template.TemplateNotFoundException;
+import org.apache.commons.io.FileUtils;
+
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.StringWriter;
+import java.net.URL;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.StringTokenizer;
+import java.util.stream.Collectors;
 
 public class GetLinksUtil {
 
-	public static final DateFormat secondsFormat = new SimpleDateFormat("ss.SSS");
 
-	public static final DateFormat minutesFormat = new SimpleDateFormat("mm:ss");
-	public static final DateFormat hoursMinutesFormat = new SimpleDateFormat("H:mm:ss");
-
-	public static final DateFormat literalMinutesFormat = new SimpleDateFormat("m'm 's's'");
-	public static final DateFormat literalHoursMinutesFormat = new SimpleDateFormat("H'h 'm'm 's's'");
 	private static boolean downloadEnabled = false;
 	private static boolean durationEnabled = false;
 	private static String novelaPath = "";
@@ -56,14 +40,17 @@ public class GetLinksUtil {
 	public static final String DEFAULT_VIDEO_HOSTNAME = "https://videos.impresa.pt";
 	public static final String DEFAULT_IMAGE_HOSTNAME = "//images.impresa.pt";
 
+	private GetLinksUtil() {
+	}
+
 	public static List<Episode> getAllEpisodesFromApi(final String hostname, String url, int start,
 													   int stop, boolean forceDownload) {
-		HtmlPage page = getPage(hostname + url);
-		System.out.println("Parse page url:  " + page.getUrl());
+		HtmlPage page = getPage(hostname + url)
+				.orElseThrow(() -> new NullPointerException("Page not accessible: " + hostname + url));
+		System.out.printf("Parse page url:  %s%n", page.getUrl());
 
-		List<DomElement> allFigures = new LinkedList();
 		DomNodeList<DomElement> figures = page.getElementsByTagName("figure");
-		figures.stream().forEach(domElement -> allFigures.add(domElement));
+		List<DomElement> allFigures = new LinkedList<>(figures);
 		DomNodeList<DomElement> allH1Tags = page.getElementsByTagName("h1");
 		List<String> titles = allH1Tags.stream()
 				.filter(domElement -> domElement.getFirstElementChild().getAttribute("itemprop").equalsIgnoreCase("url"))
@@ -75,33 +62,27 @@ public class GetLinksUtil {
 		while (hasMoreEpisodes) {
 			// Read page tags
 			String lastDate = getLastDate(page, "p", "input");
+			page = getPage(hostname + url+"?offset="+lastDate)
+				.orElseThrow(() -> new NullPointerException("Page not accessible: " + hostname + url+"?offset="+lastDate));
 
-			page = getPage(hostname + url+"?offset="+lastDate);
-			if (page==null) {
-				break;
-			}
 			System.out.println("Parse page url:  " + page.getUrl());
-
 			figures = page.getElementsByTagName("figure");
-			if (figures==null) {
-				break;
+			if (figures != null) {
+				allFigures.addAll(figures);
+				allH1Tags = page.getElementsByTagName("h1");
+				titles = allH1Tags.stream()
+						.filter(domElement -> domElement.getFirstElementChild().getAttribute("itemprop").equalsIgnoreCase("url"))
+						.map(domElement -> "Episódio" + getEpisodeId(domElement.getTextContent(), 0))
+						.collect(Collectors.toList());
 			}
-			figures.stream().forEach(domElement -> allFigures.add(domElement));
-
-			allH1Tags = page.getElementsByTagName("h1");
-			titles = allH1Tags.stream()
-					.filter(domElement -> domElement.getFirstElementChild().getAttribute("itemprop").equalsIgnoreCase("url"))
-					.map(domElement -> "Episódio"+getEpisodeId(domElement.getTextContent(), 0))
-					.collect(Collectors.toList());
 			hasMoreEpisodes = !titles.contains("Episódio1");
-
 		}
 
 		Collections.reverse(allFigures);
 
 		List<DomElement> anchors = allFigures.stream().map(DomElement::getFirstElementChild).collect(Collectors.toList());
 
-		ArrayList episodes = new ArrayList();
+		ArrayList<Episode> episodes = new ArrayList<>();
 
 		Episode episode = null;
 		int count=1;
@@ -121,19 +102,19 @@ public class GetLinksUtil {
 			try {
 				episode = getEpisode(count, pageUrl, forceDownload);
 				System.out.println("URL: " + episode.getEpisodeUrl());
-
-			} catch (IOException e) {
+				episodes.add(episode);
+				count++;
+			} catch (IOException | NullPointerException e) {
 				try {
+					assert episode != null;
 					episode.deleteVideo();
 				} catch (IOException e1) {
 					// TODO Auto-generated catch block
 					e1.printStackTrace();
 				}
 				System.out.println("Skip episode " + count);
-				continue;
 			}
-			episodes.add(episode);
-			count++;
+
 		}
 		return episodes;
 	}
@@ -149,41 +130,11 @@ public class GetLinksUtil {
 							|| domElement.getAttribute("itemprop").contains("datePublished"))
 					.map(domElement -> domElement.getAttribute("datetime"))
 					.collect(Collectors.toList());
-			if (dateTimes.size() > 0) {
+			if (!dateTimes.isEmpty()) {
 				return dateTimes.get(dateTimes.size() - 1);
 			}
 		}
 		return null;
-	}
-
-	private static Episode getEpisode(int id, String hostname, String seasonTag, String queryUrl, boolean forceDownload)
-			throws IOException {
-		String content = getPage(queryUrl).getBody().asXml();
-		String tagEpisode = seasonTag + "---Episodio-" + id + "-";
-		int endIndex = content.indexOf(tagEpisode);
-		String episodeUrl = null;
-		if (endIndex == -1) {
-			episodeUrl = promptConsole("Saisissez l'url de l'épisode "+id, 20);
-			if (episodeUrl.isEmpty()) {
-				Episode ep = new Episode(id);
-				ep.setSearchUrl(queryUrl);
-				return ep;
-			}
-		} else {
-			int beginIndex = content.substring(0, endIndex).lastIndexOf("=\"");
-			endIndex = content.indexOf("\"", endIndex);
-			episodeUrl = hostname + content.substring(beginIndex + 2, endIndex);
-		}
-		
-		Episode episode = new Episode(id, episodeUrl);
-		if (downloadEnabled || durationEnabled) {
-			episode.downloadVideo(FileUtils.getUserDirectoryPath() + File.separator + "Videos" + novelaPath, "mpg",
-					forceDownload);
-			if (!downloadEnabled) {
-				episode.deleteVideo();
-			}
-		}
-		return episode;
 	}
 
 	private static Episode getEpisode(int id, String pageUrl, boolean forceDownload)
@@ -191,8 +142,9 @@ public class GetLinksUtil {
 
 		String episodeUrl = "";
 		try {
-			episodeUrl = getVideoUrl(getPage(pageUrl));
-		} catch (TagNameNotFoundException e) {
+			episodeUrl = getVideoUrl(getPage(pageUrl)
+					.orElseThrow(() -> new NullPointerException("Page not accessible: " + pageUrl)));
+		} catch (TagNameNotFoundException | AttributeSrcNotFoundException e) {
 			System.out.println("No videoUrl");
 		}
 		if (episodeUrl.isEmpty()) {
@@ -212,10 +164,9 @@ public class GetLinksUtil {
 		return episode;
 	}
 
-	static HtmlPage getPage(String queryUrl) throws FailingHttpStatusCodeException {
-		WebClient webClient = gethtmlUnitClient();
+	static Optional<HtmlPage> getPage(String queryUrl) {
 
-		try {
+		try (WebClient webClient = gethtmlUnitClient()) {
 			HtmlPage page = null;
 			try {
 				page = webClient.getPage(queryUrl);
@@ -226,9 +177,7 @@ public class GetLinksUtil {
 				System.out.println("Get page error: " + e.getMessage());
 			}
 
-			return page;
-		} finally {
-			webClient.close();
+			return Optional.ofNullable(page);
 		}
 
 	}
@@ -252,12 +201,12 @@ public class GetLinksUtil {
 			} else {
 				System.out.println("Aucune saisie");
 			}
-		} catch (IOException e) {
+		} catch (IOException ignored) {
 		}
 		return inputData;
 	}
 
-	static public WebClient gethtmlUnitClient() {
+	public static WebClient gethtmlUnitClient() {
 		WebClient webClient = new WebClient(BrowserVersion.BEST_SUPPORTED);
 		webClient.getOptions().setThrowExceptionOnScriptError(false);
 		webClient.getOptions().setCssEnabled(false);
@@ -269,8 +218,7 @@ public class GetLinksUtil {
 
 	}
 
-	static String getVideoUrl(HtmlPage page)
-			throws FailingHttpStatusCodeException, TagNameNotFoundException {
+	static String getVideoUrl(HtmlPage page) throws TagNameNotFoundException, AttributeSrcNotFoundException {
 
 		HtmlElement articleElement = page
 				.getBody()
@@ -278,7 +226,9 @@ public class GetLinksUtil {
 				.stream()
 				.filter(htmlElement -> htmlElement.getAttribute("class").contains("AT-video"))
 				.findFirst()
-				.orElse(null);
+				.orElseThrow(() -> new TagNameNotFoundException(
+						String.format("Could not found tagName: 'article' in this page: '%s'", page.getTitleText())));
+
 		int begin = articleElement.asXml().indexOf(DEFAULT_VIDEO_HOSTNAME);
 		if (begin>-1) {
 			int end = articleElement.asXml().indexOf('"', begin);
@@ -287,20 +237,20 @@ public class GetLinksUtil {
 				return videoUrl;
 			}
 		}
-
-		throw new TagNameNotFoundException(
+		throw new AttributeSrcNotFoundException(
 				"Could not found tagName: 'article' in this page: '" + page.getTitleText() + "'");
 	}
 
-	static String getImageUrl(HtmlPage page)
-			throws FailingHttpStatusCodeException, MalformedURLException, IOException, TagNameNotFoundException {
+	static String getImageUrl(HtmlPage page) throws TagNameNotFoundException, AttributeSrcNotFoundException {
 		HtmlElement articleElement = page
 				.getBody()
 				.getElementsByTagName("article")
 				.stream()
 				.filter(htmlElement -> htmlElement.getAttribute("class").contains("AT-video"))
 				.findFirst()
-				.orElse(null);
+				.orElseThrow(() -> new TagNameNotFoundException(
+						String.format("Could not found tagName: 'article' in this page: '%s'", page.getTitleText())));
+
 		int begin = articleElement.asXml().indexOf(DEFAULT_IMAGE_HOSTNAME);
 		if (begin>-1) {
 			int end = articleElement.asXml().indexOf('"', begin);
@@ -309,12 +259,11 @@ public class GetLinksUtil {
 				return imageUrl.startsWith("//")?"https:"+imageUrl:imageUrl;
 			}
 		}
-
-		throw new TagNameNotFoundException(
+		throw new AttributeSrcNotFoundException(
 				"Could not found tagName: 'article' in this page: '" + page.getTitleText() + "'");
 	}
 
-	static String getTitle(HtmlPage page) throws FailingHttpStatusCodeException {
+	static String getTitle(HtmlPage page) {
 		DomNodeList<DomElement> elements = page.getElementsByTagName("h1");
 		for (DomElement element : elements) {
 			if (element.getAttribute("class").contains("title")) {
@@ -335,8 +284,7 @@ public class GetLinksUtil {
 		return defaultValue;
 	}
 
-	static String getDescription(HtmlPage page)
-			throws FailingHttpStatusCodeException {
+	static String getDescription(HtmlPage page) {
 		DomNodeList<DomElement> elements = page.getElementsByTagName("p");
 		for (DomElement element : elements) {
 			if (element.getAttribute("class").contains("video-see-more")) {
@@ -353,7 +301,7 @@ public class GetLinksUtil {
 	}
 
 	static File downloadFile(String url, String destinationPath, boolean forceDownload)
-			throws FailingHttpStatusCodeException, IOException {
+			throws IOException {
 
 		File destination = new File(destinationPath); // To store the file at a certain destination for temporary usage
 		if (forceDownload || !destination.exists()) {
@@ -365,7 +313,7 @@ public class GetLinksUtil {
 	}
 
 	static double getDuration(File videoFile)
-			throws FailingHttpStatusCodeException, IOException {
+			throws IOException {
 
 		IsoFile isoFile = new IsoFile(videoFile.getAbsolutePath());
 
@@ -384,7 +332,10 @@ public class GetLinksUtil {
 
 	public static void updateMissingEpisodesFromApi(String hostname, String url, int start,
 													int stop, final List<Episode> episodes, boolean forceDownload) {
+		System.out.println("--------------------------------------------------------");
+
 		List<Episode> allEpisodesFromApi = getAllEpisodesFromApi(hostname, url, start, stop, false);
+		System.out.println("Updating all episodios: "+allEpisodesFromApi.size());
 		int count = 1;
 		Episode episode = null;
 		for (Episode episodeFromApi : allEpisodesFromApi) {
@@ -395,8 +346,7 @@ public class GetLinksUtil {
 				break;
 			}
 
-			System.out.println("--------------------------------------------------------");
-
+			System.out.println("Episodio "+episodeFromApi.getEpisodeId());
 
 			try {
 				if (count <= episodes.size()) {
@@ -438,7 +388,6 @@ public class GetLinksUtil {
 					e1.printStackTrace();
 				}
 				System.out.println("Skip episode " + count);
-				continue;
 			}
 		}
 
@@ -454,9 +403,9 @@ public class GetLinksUtil {
 		}
 
 		try {
-			Writer out = new StringWriter();
+			StringWriter out = new StringWriter();
 			temp.process(root, out);
-			return ((StringWriter) out).getBuffer().toString();
+			return out.getBuffer().toString();
 
 		} catch (TemplateNotFoundException e) {
 			// TODO Auto-generated catch block
