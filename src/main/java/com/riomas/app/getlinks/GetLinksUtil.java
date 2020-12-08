@@ -28,11 +28,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.StringTokenizer;
+import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
 public class GetLinksUtil {
 
-
+	private static final Logger logger = Logger.getLogger("logger.properties", "logger");
 	private static boolean downloadEnabled = false;
 	private static boolean durationEnabled = false;
 	private static String novelaPath = "";
@@ -46,8 +47,8 @@ public class GetLinksUtil {
 	public static List<Episode> getAllEpisodesFromApi(final String hostname, String url, int start,
 													   int stop, boolean forceDownload) {
 		HtmlPage page = getPage(hostname + url)
-				.orElseThrow(() -> new NullPointerException("Page not accessible: " + hostname + url));
-		System.out.printf("Parse page url:  %s%n", page.getUrl());
+				.orElseThrow(() -> new NullPointerException(LanguageUtils.getString("page-not-accessible") + hostname + url));
+		logger.info(String.format("Parse page url:  %s%n", page.getUrl()));
 
 		DomNodeList<DomElement> figures = page.getElementsByTagName("figure");
 		List<DomElement> allFigures = new LinkedList<>(figures);
@@ -63,9 +64,9 @@ public class GetLinksUtil {
 			// Read page tags
 			String lastDate = getLastDate(page, "p", "input");
 			page = getPage(hostname + url+"?offset="+lastDate)
-				.orElseThrow(() -> new NullPointerException("Page not accessible: " + hostname + url+"?offset="+lastDate));
+				.orElseThrow(() -> new NullPointerException(LanguageUtils.getString("page-not-accessible") + hostname + url+"?offset="+lastDate));
 
-			System.out.println("Parse page url:  " + page.getUrl());
+			logger.info(String.format("Parse page url: %s", page.getUrl()));
 			figures = page.getElementsByTagName("figure");
 			if (figures != null) {
 				allFigures.addAll(figures);
@@ -97,11 +98,11 @@ public class GetLinksUtil {
 			}
 
 			String pageUrl = hostname + anchor.getAttribute("href");
-			System.out.println("--------------------------------------------------------");
-			System.out.println("pageUrl: " + pageUrl);
+			logger.info("--------------------------------------------------------");
+			logger.info(String.format("pageUrl: %s", pageUrl));
 			try {
 				episode = getEpisode(count, pageUrl, forceDownload);
-				System.out.println("URL: " + episode.getEpisodeUrl());
+				logger.info(String.format("URL: %s", episode.getEpisodeUrl()));
 				episodes.add(episode);
 				count++;
 			} catch (IOException | NullPointerException e) {
@@ -112,7 +113,7 @@ public class GetLinksUtil {
 					// TODO Auto-generated catch block
 					e1.printStackTrace();
 				}
-				System.out.println("Skip episode " + count);
+				logger.info(String.format("Skip episode %d", count));
 			}
 
 		}
@@ -145,7 +146,7 @@ public class GetLinksUtil {
 			episodeUrl = getVideoUrl(getPage(pageUrl)
 					.orElseThrow(() -> new NullPointerException("Page not accessible: " + pageUrl)));
 		} catch (TagNameNotFoundException | AttributeSrcNotFoundException e) {
-			System.out.println("No videoUrl");
+			logger.warning("No videoUrl");
 		}
 		if (episodeUrl.isEmpty()) {
 			Episode ep = new Episode(id);
@@ -174,7 +175,7 @@ public class GetLinksUtil {
 					Thread.sleep(1000);
 				}
 			} catch (Exception e) {
-				System.out.println("Get page error: " + e.getMessage());
+				logger.warning(String.format("Get page error: %s", e.getMessage()));
 			}
 
 			return Optional.ofNullable(page);
@@ -191,15 +192,15 @@ public class GetLinksUtil {
 		BufferedReader in = new BufferedReader(new InputStreamReader(System.in));
 		long startTime = System.currentTimeMillis();
 		try {
-			System.out.print(message+": ");
+			logger.info(message+": ");
 			while ((System.currentTimeMillis() - startTime) < timeoutInSeconds && !in.ready()) {
 			}
 
 			if (in.ready()) {
 				inputData = in.readLine();
-				System.out.println("Votre saisie: " + inputData);
+				logger.info(String.format("Votre saisie: %s", inputData));
 			} else {
-				System.out.println("Aucune saisie");
+				logger.info("Aucune saisie");
 			}
 		} catch (IOException ignored) {
 		}
@@ -305,8 +306,8 @@ public class GetLinksUtil {
 
 		File destination = new File(destinationPath); // To store the file at a certain destination for temporary usage
 		if (forceDownload || !destination.exists()) {
-			System.out.println("Downloading video from url : " + url);
-			System.out.println("to file : " + destination.getAbsolutePath());
+			logger.info(String.format("Downloading video from url : %s", url));
+			logger.info(String.format("to file : %s", destination.getAbsolutePath()));
 			FileUtils.copyURLToFile(new URL(url), destination);
 		}
 		return destination;
@@ -332,10 +333,10 @@ public class GetLinksUtil {
 
 	public static void updateMissingEpisodesFromApi(String hostname, String url, int start,
 													int stop, final List<Episode> episodes, boolean forceDownload) {
-		System.out.println("--------------------------------------------------------");
+		logger.info("--------------------------------------------------------");
 
 		List<Episode> allEpisodesFromApi = getAllEpisodesFromApi(hostname, url, start, stop, false);
-		System.out.println("Updating all episodios: "+allEpisodesFromApi.size());
+		logger.info(String.format("Updating all episodios: %s", allEpisodesFromApi.size()));
 		int count = 1;
 		Episode episode = null;
 		for (Episode episodeFromApi : allEpisodesFromApi) {
@@ -346,7 +347,7 @@ public class GetLinksUtil {
 				break;
 			}
 
-			System.out.println("Episodio "+episodeFromApi.getEpisodeId());
+			logger.info(String.format("Episodio %d", episodeFromApi.getEpisodeId()));
 
 			try {
 				if (count <= episodes.size()) {
@@ -371,7 +372,7 @@ public class GetLinksUtil {
 							.collect(Collectors.toList()).stream().findFirst().orElse(null)
 							;
 					if (episode!=null) {
-						System.out.println("URL: " + episode.getEpisodeUrl());
+						logger.info(String.format("URL: %s", episode.getEpisodeUrl()));
 						if (count <= episodes.size()) {
 							episodes.set(count - 1, episode);
 						} else {
@@ -387,7 +388,7 @@ public class GetLinksUtil {
 					// TODO Auto-generated catch block
 					e1.printStackTrace();
 				}
-				System.out.println("Skip episode " + count);
+				logger.info(String.format("Skip episode %d", count));
 			}
 		}
 

@@ -1,5 +1,17 @@
 package com.riomas.app.getlinks;
 
+import freemarker.template.Configuration;
+import freemarker.template.MalformedTemplateNameException;
+import freemarker.template.TemplateExceptionHandler;
+import freemarker.template.TemplateNotFoundException;
+import org.apache.commons.cli.CommandLine;
+import org.apache.commons.cli.CommandLineParser;
+import org.apache.commons.cli.DefaultParser;
+import org.apache.commons.cli.Options;
+import org.apache.commons.cli.ParseException;
+import org.apache.commons.io.FileUtils;
+import org.apache.commons.lang3.StringUtils;
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -10,22 +22,8 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.util.List;
 
-import org.apache.commons.cli.CommandLine;
-import org.apache.commons.cli.CommandLineParser;
-import org.apache.commons.cli.DefaultParser;
-import org.apache.commons.cli.Options;
-import org.apache.commons.cli.ParseException;
-import org.apache.commons.io.FileUtils;
-import org.apache.commons.lang3.StringUtils;
-
-import freemarker.template.Configuration;
-import freemarker.template.MalformedTemplateNameException;
-import freemarker.template.TemplateExceptionHandler;
-import freemarker.template.TemplateNotFoundException;
-
 /**
- * Hello world!
- *
+ * Get links Application
  */
 public class App {
 	static final String DEFAULT_HOSTNAME = "https://sic.pt";
@@ -152,8 +150,9 @@ public class App {
 	@SuppressWarnings("unchecked")
 	private static List<Episode> readFromFile(File file) {
 		ObjectInputStream oi = null;
+		FileInputStream fi = null;
 		try {
-			FileInputStream fi = new FileInputStream(file);
+			fi = new FileInputStream(file);
 			oi = new ObjectInputStream(fi);
 			// Read objects
 			return (List<Episode>) oi.readObject();
@@ -168,6 +167,13 @@ public class App {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		} finally {
+			if (fi!=null) {
+				try {
+					fi.close();
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+			}
 			if (oi!=null){
 				try {
 					oi.close();
